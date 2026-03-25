@@ -1,0 +1,36 @@
+﻿
+> impulse-trading-app@1.0.0 lint
+> next lint
+
+node.exe : 
+At C:\Program Files\n
+odejs\npm.ps1:29 
+char:3
++   & $NODE_EXE 
+$NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (:String   
+ ) [], RemoteExce    
+ption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+./components/sections
+/Features.tsx
+29:33  Error: 
+Component definition 
+is missing display 
+name  
+react/display-name
+
+info  - Need to 
+disable some ESLint 
+rules? Learn more 
+here: https://nextjs.
+org/docs/basic-featur
+es/eslint#disabling-r
+ules

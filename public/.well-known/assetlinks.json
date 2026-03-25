@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.svjtechnologies.impulse",
+      "sha256_cert_fingerprints": [
+        "B81E9EF9275146460FC67E4DE21642F7C2ACB9A106CEF4A8DBBBA09EC7E07304E"
+      ]
+    }
+  }
+]
