@@ -212,7 +212,7 @@ export interface NewsItem {
     shortDescription: string;
     description: string;
     newsStatus: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-    imageUrl: string;
+    imageUrl: string | string[];
     activeStatus: boolean;
     createdDate: string;
 }

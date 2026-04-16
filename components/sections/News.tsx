@@ -1,3 +1,4 @@
+// app/news/page.tsx
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -16,6 +17,7 @@ export default function News() {
   const [error, setError] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
+  const [imageIndices, setImageIndices] = useState<{ [key: number]: number }>({})
 
   const [itemsPerPage, setItemsPerPage] = useState(1);
 
@@ -41,6 +43,16 @@ export default function News() {
 
         setNewsItems(publishedNews)
         setNews(publishedNews)
+        
+        // Initialize image indices for each news item
+        const initialIndices: { [key: number]: number } = {}
+        publishedNews.forEach((item: NewsItem) => {
+          const imageArray = getImageArray(item.imageUrl)
+          if (imageArray.length > 1) {
+            initialIndices[item.id] = 0
+          }
+        })
+        setImageIndices(initialIndices)
       } catch (err) {
         console.error('Error fetching news:', err)
         setError(err instanceof Error ? err.message : 'An error occurred')
@@ -51,6 +63,34 @@ export default function News() {
 
     fetchNews()
   }, [])
+
+  // Helper to get image array
+  const getImageArray = (imageUrl: string | string[]): string[] => {
+    if (!imageUrl) return []
+    if (Array.isArray(imageUrl)) return imageUrl
+    return [imageUrl]
+  }
+
+  // Auto-scroll effect for each news item
+  useEffect(() => {
+    const intervals: { [key: number]: NodeJS.Timeout } = {}
+    
+    news.forEach((item) => {
+      const imageArray = getImageArray(item.imageUrl)
+      if (imageArray.length > 1) {
+        intervals[item.id] = setInterval(() => {
+          setImageIndices(prev => ({
+            ...prev,
+            [item.id]: ((prev[item.id] || 0) + 1) % imageArray.length
+          }))
+        }, 3000)
+      }
+    })
+    
+    return () => {
+      Object.values(intervals).forEach(interval => clearInterval(interval))
+    }
+  }, [news])
 
   // Calculate total slides
   const totalSlides = Math.max(1, Math.ceil(news.length / itemsPerPage));
@@ -82,8 +122,6 @@ export default function News() {
   const showPrevArrow = currentIndex > 0;
   const showNextArrow = currentIndex < totalSlides - 1 && news.length > itemsPerPage;
 
-
-
   const formatDateTime = (dateString?: string) => {
     if (!dateString) return ''
 
@@ -98,7 +136,6 @@ export default function News() {
       hour12: true
     })
   }
-
 
   if (loading) {
     return (
@@ -163,7 +200,7 @@ export default function News() {
           </div>
         ) : (
           <div className="relative group/slider">
-            {/* Previous Arrow - Only show when not at start */}
+            {/* Previous Arrow */}
             {showPrevArrow && (
               <button
                 onClick={handlePrev}
@@ -174,7 +211,7 @@ export default function News() {
               </button>
             )}
 
-            {/* Next Arrow - Only show when not at end */}
+            {/* Next Arrow */}
             {showNextArrow && (
               <button
                 onClick={handleNext}
@@ -198,89 +235,103 @@ export default function News() {
                   bounce: 0.1
                 }}
               >
-                {news.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex-shrink-0 w-full md:w-1/2 lg:w-1/3 px-4"
-                  >
-                    <Link
-                      href={`/news/${item.id}`}
-                      className="block h-full"
+                {news.map((item) => {
+                  const imageArray = getImageArray(item.imageUrl)
+                  const currentImageIndex = imageIndices[item.id] || 0
+                  const currentImage = imageArray[currentImageIndex]
+                  const hasMultipleImages = imageArray.length > 1
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex-shrink-0 w-full md:w-1/2 lg:w-1/3 px-4"
                     >
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        viewport={{ once: true }}
-                        className="h-full"
+                      <Link
+                        href={`/news/${item.id}`}
+                        className="block h-full"
                       >
-                        {/* Use flex-col and h-full - height will be determined by sibling cards */}
-                        <div className="bg-bg-card border-2 border-border hover:border-accent-gold transition-all duration-500 group cursor-pointer h-full flex flex-col shadow-xl hover:shadow-accent-gold/10 rounded-3xl overflow-hidden">
-
-                          {/* Image Section - Fixed Height (always same) */}
-                          {item.imageUrl && item.imageUrl !== "string" ? (
-                            <div className="relative aspect-[4/3] w-full overflow-hidden flex-shrink-0 border-b border-border">
-                              <Image
-                                src={getFullImageUrl(item.imageUrl)}
-                                alt={item.title}
-                                fill
-                                className="object-cover transition-transform duration-700 group-hover:scale-110"
-                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                              />
-
-                              {/* Gradient Overlays */}
-                              <div className="absolute inset-0 bg-gradient-to-t from-bg-card/90 via-bg-card/40 to-transparent" />
-                              <div className="absolute inset-0 bg-gradient-to-r from-accent-gold/5 via-transparent to-accent-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                              {/* Hover Overlay */}
-                              <div className="absolute inset-0 bg-accent-gold/0 group-hover:bg-accent-gold/5 transition-all duration-500 flex items-center justify-center">
-                              </div>
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1 }}
+                          viewport={{ once: true }}
+                          className="h-full"
+                        >
+                          <div className="bg-bg-card border-2 border-border hover:border-accent-gold transition-all duration-500 group cursor-pointer h-full flex flex-col shadow-xl hover:shadow-accent-gold/10 rounded-3xl overflow-hidden">
+                            {/* Image Section with AutoScroll */}
+                            <div className="relative aspect-[4/3] w-full overflow-hidden flex-shrink-0">
+                              {currentImage && currentImage !== "string" ? (
+                                <>
+                                  <Image
+                                    src={getFullImageUrl(currentImage)}
+                                    alt={item.title}
+                                    fill
+                                    className="object-cover transition-transform duration-700 group-hover:scale-110"
+                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                    unoptimized
+                                  />
+                                  {/* Gradient Overlays */}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-bg-card/90 via-bg-card/40 to-transparent" />
+                                  <div className="absolute inset-0 bg-gradient-to-r from-accent-gold/5 via-transparent to-accent-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                  <div className="absolute inset-0 bg-accent-gold/0 group-hover:bg-accent-gold/5 transition-all duration-500" />
+                                  
+                                  {/* Image Indicators */}
+                                  {hasMultipleImages && (
+                                    <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                                      {imageArray.map((_, idx) => (
+                                        <div
+                                          key={idx}
+                                          className={`h-1 rounded-full transition-all duration-300 ${
+                                            idx === currentImageIndex 
+                                              ? 'w-5 bg-accent-gold' 
+                                              : 'w-1.5 bg-white/40'
+                                          }`}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-bg-secondary to-bg-card">
+                                  <ImageIcon className="w-12 h-12 text-text-secondary/50" />
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="h-64 w-full bg-gradient-to-br from-bg-secondary to-bg-card rounded-t-3xl flex items-center justify-center border-b border-border flex-shrink-0">
-                              <ImageIcon className="w-12 h-12 text-text-secondary/50" />
-                            </div>
-                          )}
 
-                          {/* Content section - Remove fixed min-heights, let flex handle it */}
-                          <div className="p-6 flex flex-col flex-grow">
-                            {/* Category and Status */}
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-base text-accent-gold font-bold truncate">
-                                {item.newsCategoryName || 'News'}
-                              </span>
-                            </div>
-
-                            <h3 className="text-2xl font-bold mb-4 text-text-primary group-hover:text-accent-gold transition line-clamp-2 leading-tight">
-                              {item.title}
-                            </h3>
-
-                            <div
-                              className="text-text-secondary text-base mb-6 leading-relaxed line-clamp-3 min-h-[4.5rem] relative z-10 font-montserrat"
-                              dangerouslySetInnerHTML={{ __html: item.shortDescription || item.description }}
-                            />
-
-
-                            <div className="flex items-center justify-between text-sm text-text-secondary pt-4 border-t border-border/50 mt-auto">
-
-                              <div className="flex flex-col gap-1">
-
-
-                                <span className="text-xs text-text-primary/60 font-medium">
-                                  {formatDateTime(item.createdDate)}
+                            {/* Content section */}
+                            <div className="p-6 flex flex-col flex-grow">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-base text-accent-gold font-bold truncate">
+                                  {item.newsCategoryName || 'News'}
                                 </span>
                               </div>
 
-                              <span className="text-accent-gold group-hover:translate-x-1 transition whitespace-nowrap font-bold">
-                                Read More →
-                              </span>
+                              <h3 className="text-2xl font-bold mb-4 text-text-primary group-hover:text-accent-gold transition line-clamp-2 leading-tight">
+                                {item.title}
+                              </h3>
+
+                              <div
+                                className="text-text-secondary text-base mb-6 leading-relaxed line-clamp-3 min-h-[4.5rem] relative z-10 font-montserrat"
+                                dangerouslySetInnerHTML={{ __html: item.shortDescription || item.description }}
+                              />
+
+                              <div className="flex items-center justify-between text-sm text-text-secondary pt-4 border-t border-border/50 mt-auto">
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-xs text-text-primary/60 font-medium">
+                                    {formatDateTime(item.createdDate)}
+                                  </span>
+                                </div>
+                                <span className="text-accent-gold group-hover:translate-x-1 transition whitespace-nowrap font-bold">
+                                  Read More →
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    </Link>
-                  </div>
-                ))}
+                        </motion.div>
+                      </Link>
+                    </div>
+                  )
+                })}
               </motion.div>
             </div>
 

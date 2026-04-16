@@ -10,9 +10,6 @@ import {
   Crown,
   GraduationCap,
   Trophy,
-  Search,
-  Bell,
-  Star,
   Clock,
   FileText,
   User
@@ -95,7 +92,7 @@ export default function DashboardContent() {
           <User aria-hidden="true" className="w-6 h-6 md:w-8 h-8 text-accent-gold" />
         </div>
 
-        <div className="flex gap-3 md:gap-4 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+        {/* <div className="flex gap-3 md:gap-4 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
           <button className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-bg-card border border-border rounded-xl flex items-center justify-center hover:border-accent-gold transition">
             <Search className="w-5 h-5 text-text-secondary" />
           </button>
@@ -107,7 +104,7 @@ export default function DashboardContent() {
           <button className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-bg-card border border-border rounded-xl flex items-center justify-center hover:border-accent-gold transition">
             <Star className="w-5 h-5 text-text-secondary" />
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* Stats Grid */}

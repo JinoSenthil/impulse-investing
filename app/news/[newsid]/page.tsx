@@ -1,3 +1,4 @@
+// app/news/[newsid]/page.tsx
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
@@ -22,6 +23,8 @@ export default function NewsDetailsPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [itemsPerPage, setItemsPerPage] = useState(1)
   const [isHovered, setIsHovered] = useState(false)
+  const [featuredImageIndex, setFeaturedImageIndex] = useState(0)
+  const [carouselImageIndices, setCarouselImageIndices] = useState<{ [key: number]: number }>({})
 
   useEffect(() => {
     const handleResize = () => {
@@ -33,6 +36,13 @@ export default function NewsDetailsPage() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Helper to get image array
+  const getImageArray = (imageUrl: string | string[]): string[] => {
+    if (!imageUrl) return []
+    if (Array.isArray(imageUrl)) return imageUrl
+    return [imageUrl]
+  }
 
   useEffect(() => {
     const fetchNewsByCategory = async () => {
@@ -48,6 +58,7 @@ export default function NewsDetailsPage() {
         }
 
         setCurrentNews(clickedNews)
+        setFeaturedImageIndex(0)
 
         const categoryId = clickedNews.newsCategoryId
 
@@ -60,8 +71,19 @@ export default function NewsDetailsPage() {
         })
 
         const activeNews = newsInCategory.filter(item => item.activeStatus)
-
         setCategoryNews(activeNews)
+        
+        // Initialize carousel indices for other articles
+        const initialIndices: { [key: number]: number } = {}
+        activeNews.forEach((item: NewsItem) => {
+          if (item.id !== clickedNews.id) {
+            const imageArray = getImageArray(item.imageUrl)
+            if (imageArray.length > 1) {
+              initialIndices[item.id] = 0
+            }
+          }
+        })
+        setCarouselImageIndices(initialIndices)
       } catch (err) {
         console.error('Failed to fetch news:', err)
         setError(err instanceof Error ? err.message : 'Failed to load news details')
@@ -73,9 +95,46 @@ export default function NewsDetailsPage() {
     fetchNewsByCategory()
   }, [newsid])
 
+  // Auto-scroll for featured image
+  useEffect(() => {
+    if (!currentNews) return
+    
+    const featuredImageArray = getImageArray(currentNews.imageUrl)
+    if (featuredImageArray.length <= 1) return
+
+    const interval = setInterval(() => {
+      setFeaturedImageIndex((prev) => (prev + 1) % featuredImageArray.length)
+    }, 4000)
+
+    return () => clearInterval(interval)
+  }, [currentNews])
+
+  // Auto-scroll for carousel items
+  useEffect(() => {
+    const intervals: { [key: number]: NodeJS.Timeout } = {}
+    
+    categoryNews.forEach((item) => {
+      if (item.id !== currentNews?.id) {
+        const imageArray = getImageArray(item.imageUrl)
+        if (imageArray.length > 1) {
+          intervals[item.id] = setInterval(() => {
+            setCarouselImageIndices(prev => ({
+              ...prev,
+              [item.id]: ((prev[item.id] || 0) + 1) % imageArray.length
+            }))
+          }, 3000)
+        }
+      }
+    })
+    
+    return () => {
+      Object.values(intervals).forEach(interval => clearInterval(interval))
+    }
+  }, [categoryNews, currentNews])
+
   const otherArticles = categoryNews.filter(item => item.id !== currentNews?.id)
 
-  // Auto-slide functionality
+  // Auto-slide functionality for carousel
   useEffect(() => {
     if (otherArticles.length <= itemsPerPage || isHovered) return;
 
@@ -110,7 +169,7 @@ export default function NewsDetailsPage() {
   const showNextArrow = currentIndex < totalSlides - 1 && otherArticles.length > itemsPerPage;
 
   const truncateText = (html: string, limit = 100) => {
-    const text = html.replace(/<[^>]*>/g, ''); // remove HTML tags
+    const text = html.replace(/<[^>]*>/g, '');
     return text.length > limit ? text.slice(0, limit) + '...' : text;
   };
 
@@ -136,6 +195,7 @@ export default function NewsDetailsPage() {
       hour12: true
     })
   }
+
   if (loading) {
     return <GlobalLoading />;
   }
@@ -152,6 +212,10 @@ export default function NewsDetailsPage() {
       </div>
     )
   }
+
+  const featuredImageArray = getImageArray(currentNews.imageUrl)
+  const currentFeaturedImage = featuredImageArray[featuredImageIndex]
+  const hasMultipleFeaturedImages = featuredImageArray.length > 1
 
   return (
     <div className="min-h-screen bg-[#020C0E] text-white">
@@ -190,7 +254,7 @@ export default function NewsDetailsPage() {
         {/* Featured Article Section */}
         <div className="mb-16">
           <div className="w-[90%] max-w-[1800px] mx-auto px-6">
-            {/* Heading Section - Category, Date, and Title */}
+            {/* Heading Section */}
             <div className="mb-12">
               <div className="flex items-center gap-4 mb-4">
                 <div className="text-sm text-accent-gold uppercase tracking-[4px] font-bold">
@@ -209,23 +273,42 @@ export default function NewsDetailsPage() {
             {/* Featured Content Grid - Image and Short Description */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16 items-start">
               <div className="w-full">
-                {currentNews.imageUrl && currentNews.imageUrl !== 'string' ? (
-                  <div className="relative w-full aspect-[4/3] overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
-                    <Image
-                      fill
-                      src={getFullImageUrl(currentNews.imageUrl)}
-                      alt={currentNews.title}
-                      className="object-cover"
-                      priority
-                      sizes="(max-width: 1024px) 100vw, 50vw"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                  </div>
-                ) : (
-                  <div className="w-full aspect-[4/3] bg-bg-card rounded-2xl flex items-center justify-center border border-white/10 shadow-2xl">
-                    <ImageIcon className="w-16 h-16 text-text-secondary/50" />
-                  </div>
-                )}
+                <div className="relative w-full aspect-[4/3] overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
+                  {currentFeaturedImage && currentFeaturedImage !== "string" ? (
+                    <>
+                      <Image
+                        fill
+                        src={getFullImageUrl(currentFeaturedImage)}
+                        alt={currentNews.title}
+                        className="object-cover transition-opacity duration-500"
+                        priority
+                        sizes="(max-width: 1024px) 100vw, 50vw"
+                        unoptimized
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                      
+                      {/* Image Indicators for featured image */}
+                      {hasMultipleFeaturedImages && (
+                        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                          {featuredImageArray.map((_, idx) => (
+                            <div
+                              key={idx}
+                              className={`h-1 rounded-full transition-all duration-300 ${
+                                idx === featuredImageIndex 
+                                  ? 'w-5 bg-accent-gold' 
+                                  : 'w-1.5 bg-white/40'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="w-full h-full bg-bg-card rounded-2xl flex items-center justify-center">
+                      <ImageIcon className="w-16 h-16 text-text-secondary/50" />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col justify-center h-full">
@@ -297,92 +380,103 @@ export default function NewsDetailsPage() {
                     bounce: 0.1
                   }}
                 >
-                  {otherArticles.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex-shrink-0 w-full md:w-[calc((100%-32px)/2)] lg:w-[calc((100%-70px)/3)]"
-                    >
-                      <Link
-                        href={`/news/${item.id}`}
-                        className="block h-full"
+                  {otherArticles.map((item) => {
+                    const imageArray = getImageArray(item.imageUrl)
+                    const currentCarouselIndex = carouselImageIndices[item.id] || 0
+                    const currentImage = imageArray[currentCarouselIndex]
+                    const hasMultipleImages = imageArray.length > 1
+                    
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex-shrink-0 w-full md:w-[calc((100%-32px)/2)] lg:w-[calc((100%-70px)/3)]"
                       >
-                        <motion.div
-                          initial={{ opacity: 0, y: 20 }}
-                          whileInView={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.1 }}
-                          viewport={{ once: true }}
-                          className="h-full"
+                        <Link
+                          href={`/news/${item.id}`}
+                          className="block h-full"
                         >
-                          {/* Card container with same styling as first component */}
-                          <div className="bg-bg-card border-2 border-border hover:border-accent-gold transition-all duration-300 group cursor-pointer h-full flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:shadow-[0_0_40px_rgba(212,175,55,0.1)] rounded-[10px]">
-
-                            {/* Image Section - Fixed aspect ratio */}
-                            {item.imageUrl && item.imageUrl !== "string" ? (
-                              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-[10px] flex-shrink-0">
-                                <Image
-                                  src={getFullImageUrl(item.imageUrl)}
-                                  alt={item.title}
-                                  fill
-                                  className="object-cover transition-transform duration-700 group-hover:scale-110"
-                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                />
-
-                                {/* Gradient Overlays */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-[#051113]/90 via-[#051113]/40 to-transparent" />
-                                <div className="absolute inset-0 bg-gradient-to-r from-accent-gold/5 via-transparent to-accent-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                                {/* Hover Overlay */}
-                                <div className="absolute inset-0 bg-accent-gold/0 group-hover:bg-accent-gold/5 transition-all duration-500 flex items-center justify-center">
-                                  <div className="translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                                    {/* <div className="bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-white/20">
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1 }}
+                            viewport={{ once: true }}
+                            className="h-full"
+                          >
+                            <div className="bg-bg-card border-2 border-border hover:border-accent-gold transition-all duration-300 group cursor-pointer h-full flex flex-col shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:shadow-[0_0_40px_rgba(212,175,55,0.1)] rounded-[10px] overflow-hidden">
+                              {/* Image Section with AutoScroll */}
+                              <div className="relative aspect-[4/3] w-full overflow-hidden flex-shrink-0">
+                                {currentImage && currentImage !== "string" ? (
+                                  <>
+                                    <Image
+                                      src={getFullImageUrl(currentImage)}
+                                      alt={item.title}
+                                      fill
+                                      className="object-cover transition-transform duration-700 group-hover:scale-110"
+                                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                      unoptimized
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[#051113]/90 via-[#051113]/40 to-transparent" />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-accent-gold/5 via-transparent to-accent-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                    <div className="absolute inset-0 bg-accent-gold/0 group-hover:bg-accent-gold/5 transition-all duration-500" />
                                     
-                                    </div> */}
+                                    {/* Image Indicators */}
+                                    {hasMultipleImages && (
+                                      <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                                        {imageArray.map((_, idx) => (
+                                          <div
+                                            key={idx}
+                                            className={`h-1 rounded-full transition-all duration-300 ${
+                                              idx === currentCarouselIndex 
+                                                ? 'w-5 bg-accent-gold' 
+                                                : 'w-1.5 bg-white/40'
+                                            }`}
+                                          />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-[#0C2D2A] to-[#05161A] flex items-center justify-center">
+                                    <ImageIcon className="w-12 h-12 text-text-secondary/50" />
                                   </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="h-64 w-full bg-gradient-to-br from-[#0C2D2A] to-[#05161A] rounded-t-[10px] flex items-center justify-center border-b border-border flex-shrink-0">
-                                <ImageIcon className="w-12 h-12 text-text-secondary/50" />
-                              </div>
-                            )}
-
-                            {/* Content section */}
-                            <div className="p-6 flex flex-col flex-grow">
-                              {/* Category and Status */}
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm text-accent-gold font-semibold truncate">
-                                  {item.newsCategoryName || 'News'}
-                                </span>
+                                )}
                               </div>
 
-                              <h3 className="text-xl font-bold mb-4 text-white group-hover:text-accent-gold transition line-clamp-2 leading-tight">
-                                {item.title}
-                              </h3>
-
-                              <div className="mb-5 flex-grow">
-                                <p className="text-text-secondary line-clamp-3 leading-relaxed">
-                                  {truncateText(item.shortDescription || item.description, 150)}
-                                </p>
-                              </div>
-
-                              {/* Footer with date and read more */}
-                              <div className="flex items-center justify-between text-sm text-text-secondary pt-4 border-t border-border/50 mt-auto">
-                                <div className="flex flex-col gap-1">
-                                  <span className="text-[11px] text-white/60">
-                                    {formatDateTime(item.createdDate)}
+                              {/* Content section */}
+                              <div className="p-6 flex flex-col flex-grow">
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-sm text-accent-gold font-semibold truncate">
+                                    {item.newsCategoryName || 'News'}
                                   </span>
                                 </div>
 
-                                <span className="text-accent-gold group-hover:translate-x-1 transition whitespace-nowrap">
-                                  Read More →
-                                </span>
+                                <h3 className="text-xl font-bold mb-4 text-white group-hover:text-accent-gold transition line-clamp-2 leading-tight">
+                                  {item.title}
+                                </h3>
+
+                                <div className="mb-5 flex-grow">
+                                  <p className="text-text-secondary line-clamp-3 leading-relaxed">
+                                    {truncateText(item.shortDescription || item.description, 150)}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center justify-between text-sm text-text-secondary pt-4 border-t border-border/50 mt-auto">
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-[11px] text-white/60">
+                                      {formatDateTime(item.createdDate)}
+                                    </span>
+                                  </div>
+                                  <span className="text-accent-gold group-hover:translate-x-1 transition whitespace-nowrap">
+                                    Read More →
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </motion.div>
-                      </Link>
-                    </div>
-                  ))}
+                          </motion.div>
+                        </Link>
+                      </div>
+                    )
+                  })}
                 </motion.div>
               </div>
 

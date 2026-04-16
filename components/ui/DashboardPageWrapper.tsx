@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/lib/store'
-import { Search, Bell, Star } from 'lucide-react'
 
 interface DashboardPageWrapperProps {
     title: string
@@ -51,24 +50,22 @@ export default function DashboardPageWrapper({ title, children }: DashboardPageW
                     <h1 className="font-cinzel text-2xl md:text-3xl lg:text-4xl font-bold">{title}</h1>
                     {user && (
                         <p className="text-text-secondary text-sm mt-1">
-                            Welcome back, <span className="text-accent-gold font-bold">{user.firstName}</span>!
+                            Welcome back,a <span className="text-accent-gold font-bold">{user.firstName}</span>!
                         </p>
                     )}
                 </div>
-                <div className="flex gap-3 md:gap-4 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                {/* <div className="flex gap-3 md:gap-4 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
                     <button className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-bg-card border border-border rounded-xl flex items-center justify-center hover:border-accent-gold transition">
                         <Search className="w-5 h-5 text-text-secondary" />
                     </button>
                     <button className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-bg-card border border-border rounded-xl flex items-center justify-center hover:border-accent-gold transition relative">
                         <Bell className="w-5 h-5 text-text-secondary" />
-                        {/* <span className="absolute -top-1 -right-1 w-4 h-4 md:w-5 md:h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] md:text-xs font-bold">
-                            3
-                        </span> */}
+                      
                     </button>
                     <button className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-bg-card border border-border rounded-xl flex items-center justify-center hover:border-accent-gold transition">
                         <Star className="w-5 h-5 text-text-secondary" />
                     </button>
-                </div>
+                </div> */}
             </div>
 
             {/* Page Content */}

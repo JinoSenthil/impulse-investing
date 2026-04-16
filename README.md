@@ -162,5 +162,3 @@ This project is private and proprietary.
 ## Support
 
 For support, email support@impulse.com or contact us through the website.
-"# impulse-investing" 
-"# impulse-investing" 
