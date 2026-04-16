@@ -196,6 +196,8 @@ export default function NewsDetailsPage() {
     })
   }
 
+  
+
   if (loading) {
     return <GlobalLoading />;
   }
@@ -324,7 +326,7 @@ export default function NewsDetailsPage() {
             </div>
 
             {/* Full Description Section */}
-            <div className="max-w-5xl">
+            <div className="max-w-5xl news-content">
               <div
                 className="prose prose-invert prose-lg max-w-none text-text-secondary text-base leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: currentNews.description }}
@@ -385,6 +387,7 @@ export default function NewsDetailsPage() {
                     const currentCarouselIndex = carouselImageIndices[item.id] || 0
                     const currentImage = imageArray[currentCarouselIndex]
                     const hasMultipleImages = imageArray.length > 1
+                    
                     
                     return (
                       <div
