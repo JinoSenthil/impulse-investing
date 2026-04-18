@@ -253,7 +253,7 @@ export default function NewsListingPage() {
                             dangerouslySetInnerHTML={{ __html: item.shortDescription || item.description }}
                           />
 
-                          <div className="flex items-center justify-between text-sm text-text-secondary pt-6 border-t border-white/5 mt-auto">
+                          <div className="flex items-center justify-between text-sm text-text-secondary pt-6 border-t border-white/2 mt-auto">
                             <div className="flex flex-col">
 
                               <span className="text-xs text-white/70 font-bold">

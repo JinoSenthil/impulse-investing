@@ -12,6 +12,30 @@ import { getFullImageUrl } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import GlobalLoading from '@/components/ui/GlobalLoading'
 
+// Add this helper function to process images in HTML
+const processDescriptionImages = (html: string): string => {
+  if (!html) return '';
+  
+  // Create a temporary div to parse HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  // Find all img tags in the description
+  const images = tempDiv.querySelectorAll('img');
+  
+  images.forEach((img) => {
+    const src = img.getAttribute('src');
+    if (src && !img.hasAttribute('width') && !img.hasAttribute('height')) {
+      // Add width and height attributes
+      img.setAttribute('width', '400');
+      img.setAttribute('height', '250');
+      img.setAttribute('style', `${img.getAttribute('style') || ''} width: 50%; height: auto; aspect-ratio: 400/250;`);
+    }
+  });
+  
+  return tempDiv.innerHTML;
+};
+
 export default function NewsDetailsPage() {
   const params = useParams()
   const newsid = params?.newsid
@@ -25,6 +49,7 @@ export default function NewsDetailsPage() {
   const [isHovered, setIsHovered] = useState(false)
   const [featuredImageIndex, setFeaturedImageIndex] = useState(0)
   const [carouselImageIndices, setCarouselImageIndices] = useState<{ [key: number]: number }>({})
+  const [processedDescription, setProcessedDescription] = useState<string>('')
 
   useEffect(() => {
     const handleResize = () => {
@@ -59,6 +84,11 @@ export default function NewsDetailsPage() {
 
         setCurrentNews(clickedNews)
         setFeaturedImageIndex(0)
+        
+        // Process description for images
+        if (clickedNews.description) {
+          setProcessedDescription(processDescriptionImages(clickedNews.description));
+        }
 
         const categoryId = clickedNews.newsCategoryId
 
@@ -196,8 +226,6 @@ export default function NewsDetailsPage() {
     })
   }
 
-  
-
   if (loading) {
     return <GlobalLoading />;
   }
@@ -325,11 +353,11 @@ export default function NewsDetailsPage() {
               </div>
             </div>
 
-            {/* Full Description Section */}
+            {/* Full Description Section - WITH PROCESSED IMAGES */}
             <div className="max-w-5xl news-content">
               <div
-                className="prose prose-invert prose-lg max-w-none text-text-secondary text-base leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: currentNews.description }}
+                className="prose prose-invert prose-lg max-w-none text-text-secondary text-base leading-relaxed [&_img]:w-full [&_img]:h-auto [&_img]:object-cover [&_img]:rounded-lg [&_img]:my-6 [&_img]:shadow-lg"
+                dangerouslySetInnerHTML={{ __html: processedDescription || currentNews.description }}
               />
             </div>
           </div>
@@ -387,7 +415,6 @@ export default function NewsDetailsPage() {
                     const currentCarouselIndex = carouselImageIndices[item.id] || 0
                     const currentImage = imageArray[currentCarouselIndex]
                     const hasMultipleImages = imageArray.length > 1
-                    
                     
                     return (
                       <div
@@ -463,7 +490,7 @@ export default function NewsDetailsPage() {
                                   </p>
                                 </div>
 
-                                <div className="flex items-center justify-between text-sm text-text-secondary pt-4 border-t border-border/50 mt-auto">
+                                <div className="flex items-center justify-between text-sm text-text-secondary pt-4 border-t border-border/20 mt-auto">
                                   <div className="flex flex-col gap-1">
                                     <span className="text-[11px] text-white/60">
                                       {formatDateTime(item.createdDate)}
