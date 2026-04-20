@@ -119,7 +119,7 @@ export interface Indicator {
     createdById: number;
     title: string;
     description: string;
-    imageUrl: string;
+    imageUrl?: string;
     price: number;
     activeStatus: boolean;
     isPurchased?: boolean

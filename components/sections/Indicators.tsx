@@ -1,28 +1,171 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Indicator } from '@/types'
 import { getFullImageUrl } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import ApiService from '@/services/ApiService'
-import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowRight, Play, Image as ImageIcon } from 'lucide-react'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/lib/store'
 
+// Auto-scroll Media Carousel Component (supports both images and videos)
+const AutoScrollMedia = ({ mediaUrls, title }: { mediaUrls: string[], title: string }) => {
+    const [currentIndex, setCurrentIndex] = useState(0)
+    const [isVideoPlaying, setIsVideoPlaying] = useState(false)
+    const intervalRef = useRef<NodeJS.Timeout | null>(null)
+    const videoRef = useRef<HTMLVideoElement>(null)
+    
+    const mediaArray = Array.isArray(mediaUrls) ? mediaUrls : (mediaUrls ? [mediaUrls] : [])
+    const hasMultipleMedia = mediaArray.length > 1
+
+    const getMediaType = (url: string): 'image' | 'video' => {
+        const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi']
+        const lowerUrl = url.toLowerCase()
+        return videoExtensions.some(ext => lowerUrl.includes(ext)) ? 'video' : 'image'
+    }
+
+    const nextMedia = useCallback(() => {
+        if (!isVideoPlaying) {
+            setCurrentIndex((prev) => (prev + 1) % mediaArray.length)
+        }
+    }, [mediaArray.length, isVideoPlaying])
+
+    // Auto-scroll functionality
+    useEffect(() => {
+        if (hasMultipleMedia && !isVideoPlaying) {
+            intervalRef.current = setInterval(nextMedia, 3000)
+        }
+
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current)
+            }
+        }
+    }, [hasMultipleMedia, nextMedia, isVideoPlaying])
+
+    const handleVideoPlay = () => {
+        setIsVideoPlaying(true)
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+        }
+    }
+
+    const handleVideoEnded = () => {
+        setIsVideoPlaying(false)
+        setCurrentIndex((prev) => (prev + 1) % mediaArray.length)
+    }
+
+    const handleVideoPause = () => {
+        setIsVideoPlaying(false)
+    }
+
+    const currentMedia = mediaArray[currentIndex] || ''
+    const mediaType = getMediaType(currentMedia)
+
+    if (!currentMedia) {
+        return (
+            <div className="w-full h-full flex items-center justify-center bg-bg-secondary">
+                <ImageIcon className="w-12 h-12 text-text-secondary" />
+            </div>
+        )
+    }
+
+    return (
+        <div className="relative w-full h-full">
+            {mediaType === 'video' ? (
+                <>
+                    <video
+                        ref={videoRef}
+                        src={getFullImageUrl(currentMedia)}
+                        className="w-full h-full object-cover"
+                        onPlay={handleVideoPlay}
+                        onPause={handleVideoPause}
+                        onEnded={handleVideoEnded}
+                        controls
+                        preload="metadata"
+                        playsInline
+                    >
+                        Your browser does not support the video tag.
+                    </video>
+                    {/* Video play icon overlay - only show when video is not playing */}
+                    {!isVideoPlaying && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/30">
+                                <Play className="w-7 h-7 text-white ml-0.5" />
+                            </div>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <Image
+                    src={getFullImageUrl(currentMedia)}
+                    alt={`${title} - media ${currentIndex + 1}`}
+                    fill
+                    className="object-cover transition-opacity duration-500"
+                    unoptimized
+                />
+            )}
+            
+            {/* Media type indicator */}
+            {/* <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-xl text-white text-xs font-bold z-20 flex items-center gap-1.5 border border-white/20">
+                {mediaType === 'video' ? (
+                    <>
+                        <Video className="w-3.5 h-3.5" />
+                        <span>Video</span>
+                    </>
+                ) : (
+                    <>
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <span>Image</span>
+                    </>
+                )}
+            </div> */}
+            
+            {/* Progress dots for multiple media */}
+            {hasMultipleMedia && (
+                <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 z-20">
+                    {mediaArray.map((_, idx) => (
+                        <button
+                            key={idx}
+                            className={`h-1.5 rounded-full transition-all duration-300 ${
+                                idx === currentIndex 
+                                    ? 'w-6 bg-accent-gold' 
+                                    : 'w-1.5 bg-white/60 hover:bg-white/80'
+                            }`}
+                            onClick={() => {
+                                if (mediaType === 'video' && videoRef.current) {
+                                    videoRef.current.pause()
+                                }
+                                setCurrentIndex(idx)
+                                setIsVideoPlaying(false)
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
 export default function Indicators() {
   const { user } = useSelector((state: RootState) => state.auth)
-  const userId = user?.id
-  console.log(0, 'User ID in Indicators component:', userId)
-
+  console.log('Current user in Indicators component:', user)
   const [indicators, setIndicators] = useState<Indicator[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [currentIndex, setCurrentIndex] = useState(0) // Fixed: This was missing the state declaration
+  const [currentIndex, setCurrentIndex] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
-
   const [itemsPerPage, setItemsPerPage] = useState(1)
+
+  // Helper function to get media array (handles both string and array)
+  const getMediaArray = (indicator: Indicator): string[] => {
+    if (!indicator.imageUrl) return []
+    if (Array.isArray(indicator.imageUrl)) return indicator.imageUrl
+    return [indicator.imageUrl]
+  }
 
   useEffect(() => {
     const handleResize = () => {
@@ -39,7 +182,8 @@ export default function Indicators() {
     const fetchIndicators = async () => {
       try {
         const data: Indicator[] = await ApiService.getAllIndicators();
-
+        
+        // Filter active indicators - no transformation needed since we handle both types in getMediaArray
         const activeIndicators = data.filter(ind => ind.activeStatus);
         setIndicators(activeIndicators);
       } catch (err) {
@@ -142,7 +286,7 @@ export default function Indicators() {
           </div>
         ) : (
           <div className="relative group/slider">
-            {/* Navigation Arrows - Premium Glass Style */}
+            {/* Navigation Arrows */}
             <button
               onClick={handlePrev}
               className="absolute left-[-20px] lg:left-[-40px] top-1/2 -translate-y-1/2 z-30 bg-bg-card/80 hover:bg-accent-gold border border-border hover:border-accent-gold p-5 rounded-full backdrop-blur-xl flex items-center justify-center shadow-2xl transition-all duration-500 hover:scale-110 active:scale-95 group-hover/slider:opacity-100 opacity-0 group-hover/slider:translate-x-0 -translate-x-4"
@@ -167,102 +311,109 @@ export default function Indicators() {
                 }}
                 transition={{ type: "spring", stiffness: 200, damping: 25 }}
               >
-                {indicators.map(indicator => (
-                  <div
-                    key={indicator.id}
-                    className="flex-shrink-0 w-full md:w-1/2 lg:w-1/3 px-4"
-                  >
-                    <div className="bg-bg-card border-2 border-border rounded-[40px] relative group hover:border-accent-gold/40 transition-all duration-500 shadow-xl flex flex-col text-left overflow-hidden h-full">
-                      {/* Shine effect on hover */}
-                      <div className="absolute inset-0 bg-gradient-to-tr from-accent-gold/0 via-accent-gold/5 to-accent-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+                {indicators.map(indicator => {
+                  const mediaArray = getMediaArray(indicator)
+                  return (
+                    <div
+                      key={indicator.id}
+                      className="flex-shrink-0 w-full md:w-1/2 lg:w-1/3 px-4"
+                    >
+                      <div className="bg-bg-card border-2 border-border rounded-[40px] relative group hover:border-accent-gold/40 transition-all duration-500 shadow-xl flex flex-col text-left overflow-hidden h-full">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-accent-gold/0 via-accent-gold/5 to-accent-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
-                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border-b border-border shadow-2xl group-hover:border-accent-gold/40 transition-all duration-500 z-10">
-                        <Image
-                          src={getFullImageUrl(indicator.imageUrl)}
-                          alt={indicator.title}
-                          fill
-                          className="object-cover transition-transform duration-700 group-hover:scale-110"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        />
+                        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border-b border-border shadow-2xl group-hover:border-accent-gold/40 transition-all duration-500 z-10">
+                          {mediaArray.length > 0 ? (
+                            <AutoScrollMedia mediaUrls={mediaArray} title={indicator.title} />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-bg-secondary">
+                              <ImageIcon className="w-12 h-12 text-text-secondary" />
+                            </div>
+                          )}
 
-                        {/* Gradient Overlays */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-bg-card/90 via-bg-card/40 to-transparent" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-accent-gold/5 via-transparent to-accent-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                          {mediaArray.length > 1 && (
+                            <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-xl text-white text-xs font-bold z-20 flex items-center gap-1.5 border border-white/20">
+                              <ImageIcon className="w-3.5 h-3.5" />
+                              <span>{mediaArray.length}</span>
+                            </div>
+                          )}
 
-                        {/* Hover Overlay Effect */}
-                        <div className="absolute inset-0 bg-accent-gold/0 group-hover:bg-accent-gold/5 transition-all duration-500" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-bg-card/90 via-bg-card/40 to-transparent pointer-events-none" />
+                          <div className="absolute inset-0 bg-gradient-to-r from-accent-gold/5 via-transparent to-accent-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                          <div className="absolute inset-0 bg-accent-gold/0 group-hover:bg-accent-gold/5 transition-all duration-500 pointer-events-none" />
 
-                        {!indicator.isPurchased && (
-                          <div className="absolute top-4 right-4 bg-bg-card/80 backdrop-blur-md border border-border px-4 py-1 rounded-xl text-accent-gold font-black shadow-lg z-20">
-                            ₹{indicator.price}
+                          {!indicator.isPurchased && indicator.price > 0 && (
+                            <div className="absolute top-3 right-3 bg-bg-card/80 backdrop-blur-md border border-border px-3 py-1.5 rounded-xl text-accent-gold font-black shadow-lg z-20 text-sm">
+                              ₹{indicator.price}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="p-6 flex flex-col flex-grow">
+                          {indicator.isPurchased && (
+                            <div className="bg-accent-green/10 border border-accent-green/30 text-accent-green px-3 py-1 rounded-lg text-xs font-black mb-3 inline-block w-fit">
+                              PURCHASED
+                            </div>
+                          )}
+                          
+                          <h3 className="text-xl md:text-xl font-bold mb-4 text-text-primary group-hover:text-accent-gold transition-colors line-clamp-2 min-h-[4rem] relative z-10">
+                            {indicator.title}
+                          </h3>
+                          
+                          <div
+                            className="text-text-secondary text-base mb-6 leading-relaxed max-w-[95%] line-clamp-3 min-h-[4.5rem] relative z-10 font-montserrat"
+                            dangerouslySetInnerHTML={{ __html: indicator.description }}
+                          />
+
+                          <div className="flex items-center gap-4 mt-auto w-full">
+                            <Link
+                              href={
+                                indicator.isPurchased
+                                  ? `/viewindicators/${indicator.id}`
+                                  : `/indicators/${indicator.id}`
+                              }
+                              className="flex-1 bg-gradient-to-r from-accent-gold via-[#e5c158] to-[#c5a059] 
+                                text-white py-4 rounded-2xl font-black text-lg
+                                hover:brightness-110 transition-all duration-300
+                                text-center shadow-[0_10px_20px_rgba(212,175,55,0.2)]
+                                active:scale-95 relative overflow-hidden group/btn hover:scale-[1.02]"
+                            >
+                              <span className="relative z-10 flex items-center justify-center gap-2">
+                                View Details
+                                <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                              </span>
+                              
+                              <div className="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] group-hover/btn:animate-[shimmer_2s_infinite]" />
+                            </Link>
                           </div>
-                        )}
-                      </div>
-
-                      <div className="p-6 flex flex-col flex-grow">
-                        {indicator.isPurchased && (
-                          <div className="bg-accent-green/10 border border-accent-green/30 text-accent-green px-3 py-1 rounded-lg text-xs font-black mb-3 inline-block w-fit">
-                            PURCHASED
-                          </div>
-                        )}
-                        
-                        <h3 className="text-xl md:text-xl font-bold mb-4 text-text-primary group-hover:text-accent-gold transition-colors line-clamp-2 min-h-[4rem] relative z-10">
-                          {indicator.title}
-                        </h3>
-                        
-                        <div
-                          className="text-text-secondary text-base mb-6 leading-relaxed max-w-[95%] line-clamp-3 min-h-[4.5rem] relative z-10 font-montserrat"
-                          dangerouslySetInnerHTML={{ __html: indicator.description }}
-                        />
-
-                        <div className="flex items-center gap-4 mt-auto w-full">
-                          <Link
-                            href={
-                              indicator.isPurchased
-                                ? `/viewindicators/${indicator.id}`
-                                : `/indicators/${indicator.id}`
-                            }
-                            className="flex-1 bg-gradient-to-r from-accent-gold via-[#e5c158] to-[#c5a059] 
-                              text-white py-4 rounded-2xl font-black text-lg
-                              hover:brightness-110 transition-all duration-300
-                              text-center shadow-[0_10px_20px_rgba(212,175,55,0.2)]
-                              active:scale-95 relative overflow-hidden group/btn hover:scale-[1.02]"
-                          >
-                            <span className="relative z-10 flex items-center justify-center gap-2">
-                              View Details
-                              <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                            </span>
-                            
-                            {/* Shimmer Effect */}
-                            <div className="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] group-hover/btn:animate-[shimmer_2s_infinite]" />
-                          </Link>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </motion.div>
             </div>
 
-            {/* Pagination Indicators - Professional Style */}
-            <div className="flex justify-center items-center gap-3 mt-8">
-              {Array.from({ length: Math.max(0, indicators.length - itemsPerPage + 1) }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentIndex(i)}
-                  className={`transition-all duration-500 ease-out rounded-full ${currentIndex === i
-                    ? 'bg-accent-gold w-10 h-1.5'
-                    : 'bg-text-primary/10 hover:bg-text-primary/30 w-3 h-1.5 hover:w-5'
+            {/* Pagination Indicators */}
+            {indicators.length > itemsPerPage && (
+              <div className="flex justify-center items-center gap-3 mt-8">
+                {Array.from({ length: Math.max(0, indicators.length - itemsPerPage + 1) }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentIndex(i)}
+                    className={`transition-all duration-500 ease-out rounded-full ${
+                      currentIndex === i
+                        ? 'bg-accent-gold w-10 h-1.5'
+                        : 'bg-text-primary/10 hover:bg-text-primary/30 w-3 h-1.5 hover:w-5'
                     }`}
-                  aria-label={`Go to slide ${i + 1}`}
-                />
-              ))}
-            </div>
+                    aria-label={`Go to slide ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Global CSS for Shimmer Animation */}
       <style jsx global>{`
         @keyframes shimmer {
           100% {
