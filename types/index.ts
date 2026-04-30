@@ -125,6 +125,18 @@ export interface Indicator {
     isPurchased?: boolean
 }
 
+export interface IndicatorPerformance {
+    id: number;
+    createdById: number;
+    indicatorId: number;
+    todayPerformance: string;
+    imageUrl: string[]; // Array of image/video URLs
+    activeStatus: boolean;
+    performanceDate: string;
+    createdDate: string;
+    modifiedDate: string;
+}
+
 export interface OnlineCourse {
     id: number;
     courseNumber: string;

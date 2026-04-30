@@ -1,4 +1,4 @@
-import { Course, LoginCredentials, User, EnrollmentData, OnlineCourse, OnlineCourseDetails, NewsItem, ContactData, Indicator, UserTest, Payment, CoursePurchase, PurchaseDetailsResponse, AboutData, Feature, IndicatorPurchase, HomePageData, IntroductionData, IndicatorEnrollment, ContactUs, Review, CourseEnrollment, YouTubePublish } from '@/types';
+import { Course, LoginCredentials, User, EnrollmentData, OnlineCourse, OnlineCourseDetails, NewsItem, ContactData, Indicator, UserTest, Payment, CoursePurchase, PurchaseDetailsResponse, AboutData, Feature, IndicatorPurchase, HomePageData, IntroductionData, IndicatorEnrollment, ContactUs, Review, CourseEnrollment, YouTubePublish, IndicatorPerformance } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.impulseinvesting.com/api';
 // const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.12:8080/api';
@@ -220,6 +220,10 @@ class ApiService {
             method: 'DELETE',
         });
     }
+
+    static async getIndicatorPerformance(indicatorId: number): Promise<IndicatorPerformance[]> {
+    return this.request<IndicatorPerformance[]>(`/indicatorPerformance/getAll?indicatorId=${indicatorId}`);
+}
 
     //News Controller
     static async getAllNews(params?: {
