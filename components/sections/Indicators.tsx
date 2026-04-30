@@ -109,21 +109,6 @@ const AutoScrollMedia = ({ mediaUrls, title }: { mediaUrls: string[], title: str
                 />
             )}
             
-            {/* Media type indicator */}
-            {/* <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-xl text-white text-xs font-bold z-20 flex items-center gap-1.5 border border-white/20">
-                {mediaType === 'video' ? (
-                    <>
-                        <Video className="w-3.5 h-3.5" />
-                        <span>Video</span>
-                    </>
-                ) : (
-                    <>
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        <span>Image</span>
-                    </>
-                )}
-            </div> */}
-            
             {/* Progress dots for multiple media */}
             {hasMultipleMedia && (
                 <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 z-20">
@@ -159,12 +144,23 @@ export default function Indicators() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
   const [itemsPerPage, setItemsPerPage] = useState(1)
+  
+  // Ref for the carousel container to prevent scroll events
+  const carouselContainerRef = useRef<HTMLDivElement>(null)
 
   // Helper function to get media array (handles both string and array)
   const getMediaArray = (indicator: Indicator): string[] => {
     if (!indicator.imageUrl) return []
     if (Array.isArray(indicator.imageUrl)) return indicator.imageUrl
     return [indicator.imageUrl]
+  }
+
+  // Prevent page scroll when interacting with carousel
+  const preventScroll = (e: React.WheelEvent | React.TouchEvent) => {
+    // Only prevent scroll if the event target is within the carousel
+    if (carouselContainerRef.current?.contains(e.target as Node)) {
+      e.stopPropagation()
+    }
   }
 
   useEffect(() => {
@@ -197,27 +193,49 @@ export default function Indicators() {
     fetchIndicators();
   }, []);
 
+  // Modified handleNext to stop at end instead of wrapping
   const handleNext = useCallback(() => {
-    setCurrentIndex(prev =>
-      prev >= indicators.length - itemsPerPage ? 0 : prev + 1
-    )
-  }, [indicators.length, itemsPerPage])
+    const maxIndex = Math.max(0, indicators.length - itemsPerPage);
+    setCurrentIndex((prev) => {
+      // Stop at the end - don't scroll past the last card
+      if (prev >= maxIndex) {
+        return prev; // Stay at the end, don't wrap around
+      }
+      return prev + 1;
+    });
+  }, [indicators.length, itemsPerPage]);
 
+  // Modified handlePrev to stop at beginning instead of wrapping
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((prev) => {
+      // Stop at the beginning - don't scroll before the first card
+      if (prev <= 0) {
+        return 0; // Stay at the start, don't wrap around
+      }
+      return prev - 1;
+    });
+  }, []);
+
+  // Modified auto-scroll to stop at the end
   useEffect(() => {
-    if (indicators.length <= itemsPerPage || isHovered) return
+    const maxIndex = Math.max(0, indicators.length - itemsPerPage);
+    // Don't auto-scroll if:
+    // 1. No indicators or indicators fit in view
+    // 2. User is hovering
+    // 3. We're at the end of the scroll
+    if (indicators.length <= itemsPerPage || isHovered || currentIndex >= maxIndex) return;
 
     const interval = setInterval(() => {
-      handleNext()
-    }, 4000)
+      handleNext();
+    }, 4000);
 
-    return () => clearInterval(interval)
-  }, [indicators.length, itemsPerPage, isHovered, handleNext])
+    return () => clearInterval(interval);
+  }, [indicators.length, itemsPerPage, isHovered, currentIndex, handleNext]);
 
-  const handlePrev = () => {
-    setCurrentIndex(prev =>
-      prev === 0 ? Math.max(0, indicators.length - itemsPerPage) : prev - 1
-    )
-  }
+  // Calculate if navigation buttons should be disabled
+  const maxIndex = Math.max(0, indicators.length - itemsPerPage);
+  const isAtStart = currentIndex === 0;
+  const isAtEnd = currentIndex >= maxIndex;
 
   if (loading) {
     return (
@@ -285,22 +303,37 @@ export default function Indicators() {
             <p>New indicators are being developed for enhanced trading performance.</p>
           </div>
         ) : (
-          <div className="relative group/slider">
-            {/* Navigation Arrows */}
+          <div 
+            className="relative group/slider"
+            ref={carouselContainerRef}
+            onWheel={preventScroll}
+            onTouchMove={preventScroll}
+          >
+            {/* Navigation Arrows - with disabled states */}
             <button
               onClick={handlePrev}
-              className="absolute left-[-20px] lg:left-[-40px] top-1/2 -translate-y-1/2 z-30 bg-bg-card/80 hover:bg-accent-gold border border-border hover:border-accent-gold p-5 rounded-full backdrop-blur-xl flex items-center justify-center shadow-2xl transition-all duration-500 hover:scale-110 active:scale-95 group-hover/slider:opacity-100 opacity-0 group-hover/slider:translate-x-0 -translate-x-4"
+              disabled={isAtStart}
+              className={`absolute left-[-20px] lg:left-[-40px] top-1/2 -translate-y-1/2 z-30 bg-bg-card/80 border border-border p-5 rounded-full backdrop-blur-xl flex items-center justify-center shadow-2xl transition-all duration-500 group-hover/slider:opacity-100 opacity-0 group-hover/slider:translate-x-0 -translate-x-4
+                ${isAtStart 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-accent-gold hover:border-accent-gold hover:scale-110 active:scale-95'
+                }`}
               aria-label="Previous indicator"
             >
-              <ChevronLeft className="w-6 h-6 text-text-primary group-hover:text-bg-primary" />
+              <ChevronLeft className={`w-6 h-6 ${isAtStart ? 'text-text-secondary' : 'text-text-primary group-hover:text-bg-primary'}`} />
             </button>
 
             <button
               onClick={handleNext}
-              className="absolute right-[-20px] lg:right-[-40px] top-1/2 -translate-y-1/2 z-30 bg-bg-card/80 hover:bg-accent-gold border border-border hover:border-accent-gold p-5 rounded-full backdrop-blur-xl flex items-center justify-center shadow-2xl transition-all duration-500 hover:scale-110 active:scale-95 group-hover/slider:opacity-100 opacity-0 group-hover/slider:translate-x-0 translate-x-4"
+              disabled={isAtEnd}
+              className={`absolute right-[-20px] lg:right-[-40px] top-1/2 -translate-y-1/2 z-30 bg-bg-card/80 border border-border p-5 rounded-full backdrop-blur-xl flex items-center justify-center shadow-2xl transition-all duration-500 group-hover/slider:opacity-100 opacity-0 group-hover/slider:translate-x-0 translate-x-4
+                ${isAtEnd 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-accent-gold hover:border-accent-gold hover:scale-110 active:scale-95'
+                }`}
               aria-label="Next indicator"
             >
-              <ChevronRight className="w-6 h-6 text-text-primary group-hover:text-bg-primary" />
+              <ChevronRight className={`w-6 h-6 ${isAtEnd ? 'text-text-secondary' : 'text-text-primary group-hover:text-bg-primary'}`} />
             </button>
 
             <div className="overflow-hidden py-5 px-0">

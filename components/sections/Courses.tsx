@@ -11,9 +11,6 @@ import { Course } from '@/types'
 import { getFullImageUrl } from '@/lib/utils'
 import GlobalLoading from '../ui/GlobalLoading';
 
-// Helper to extract YouTube ID from various URL formats
-
-
 export default function Courses() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,15 +48,35 @@ export default function Courses() {
     fetchCourses();
   }, []);
 
-  // Auto-scroll logic
+  // Auto-scroll logic - stops at end and beginning
   const handleNext = useCallback(() => {
-    setCurrentIndex((prev) =>
-      prev >= courses.length - itemsPerPage ? 0 : prev + 1
-    );
+    const maxIndex = Math.max(0, courses.length - itemsPerPage);
+    setCurrentIndex((prev) => {
+      // Stop at the end - don't scroll past the last card
+      if (prev >= maxIndex) {
+        return prev; // Stay at the end, don't wrap around
+      }
+      return prev + 1;
+    });
   }, [courses.length, itemsPerPage]);
 
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((prev) => {
+      // Stop at the beginning - don't scroll before the first card
+      if (prev <= 0) {
+        return 0; // Stay at the start, don't wrap around
+      }
+      return prev - 1;
+    });
+  }, []);
+
   useEffect(() => {
-    if (courses.length <= itemsPerPage || isHovered) return;
+    // Don't auto-scroll if:
+    // 1. No courses or courses fit in view
+    // 2. User is hovering
+    // 3. We're at the end of the scroll
+    const maxIndex = Math.max(0, courses.length - itemsPerPage);
+    if (courses.length <= itemsPerPage || isHovered || currentIndex >= maxIndex) return;
 
     const interval = setInterval(() => {
       handleNext();
@@ -67,22 +84,6 @@ export default function Courses() {
 
     return () => clearInterval(interval);
   }, [courses, itemsPerPage, isHovered, currentIndex, handleNext]);
-
-  const handlePrev = () => {
-    setCurrentIndex((prev) =>
-      prev === 0 ? Math.max(0, courses.length - itemsPerPage) : prev - 1
-    );
-  };
-
-  // if (loading) {
-  //   return (
-  //     <section id="courses" className="py-20 bg-[#020C0E]">
-  //       <div className="w-[90%] max-w-[1800px] mx-auto text-center">
-  //         <h2 className="text-white text-2xl font-cinzel animate-pulse">Loading Courses...</h2>
-  //       </div>
-  //     </section>
-  //   );
-  // }
 
   if (loading) {
     return <GlobalLoading />;
@@ -97,6 +98,11 @@ export default function Courses() {
       </section>
     );
   }
+
+  // Calculate if navigation buttons should be disabled
+  const maxIndex = Math.max(0, courses.length - itemsPerPage);
+  const isAtStart = currentIndex === 0;
+  const isAtEnd = currentIndex >= maxIndex;
 
   return (
     <section
@@ -138,18 +144,28 @@ export default function Courses() {
             {/* Navigation Arrows - Premium Glass Style */}
             <button
               onClick={handlePrev}
-              className="absolute left-[-20px] lg:left-[-40px] top-1/2 -translate-y-1/2 z-30 bg-bg-card/80 hover:bg-accent-gold border border-border hover:border-accent-gold p-5 rounded-full backdrop-blur-xl flex items-center justify-center shadow-2xl transition-all duration-500 hover:scale-110 active:scale-95 group-hover/slider:opacity-100 opacity-0 group-hover/slider:translate-x-0 -translate-x-4"
+              disabled={isAtStart}
+              className={`absolute left-[-20px] lg:left-[-40px] top-1/2 -translate-y-1/2 z-30 bg-bg-card/80 border border-border p-5 rounded-full backdrop-blur-xl flex items-center justify-center shadow-2xl transition-all duration-500 group-hover/slider:opacity-100 opacity-0 group-hover/slider:translate-x-0 -translate-x-4
+                ${isAtStart 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-accent-gold hover:border-accent-gold hover:scale-110 active:scale-95'
+                }`}
               aria-label="Previous course"
             >
-              <ChevronLeft className="w-6 h-6 text-text-primary group-hover:text-bg-primary" />
+              <ChevronLeft className={`w-6 h-6 ${isAtStart ? 'text-text-secondary' : 'text-text-primary group-hover:text-bg-primary'}`} />
             </button>
 
             <button
               onClick={handleNext}
-              className="absolute right-[-20px] lg:right-[-40px] top-1/2 -translate-y-1/2 z-30 bg-bg-card/80 hover:bg-accent-gold border border-border hover:border-accent-gold p-5 rounded-full backdrop-blur-xl flex items-center justify-center shadow-2xl transition-all duration-500 hover:scale-110 active:scale-95 group-hover/slider:opacity-100 opacity-0 group-hover/slider:translate-x-0 translate-x-4"
+              disabled={isAtEnd}
+              className={`absolute right-[-20px] lg:right-[-40px] top-1/2 -translate-y-1/2 z-30 bg-bg-card/80 border border-border p-5 rounded-full backdrop-blur-xl flex items-center justify-center shadow-2xl transition-all duration-500 group-hover/slider:opacity-100 opacity-0 group-hover/slider:translate-x-0 translate-x-4
+                ${isAtEnd 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-accent-gold hover:border-accent-gold hover:scale-110 active:scale-95'
+                }`}
               aria-label="Next course"
             >
-              <ChevronRight className="w-6 h-6 text-text-primary group-hover:text-bg-primary" />
+              <ChevronRight className={`w-6 h-6 ${isAtEnd ? 'text-text-secondary' : 'text-text-primary group-hover:text-bg-primary'}`} />
             </button>
 
             <div className="overflow-hidden py-5 px-0">
@@ -191,7 +207,6 @@ export default function Courses() {
                         </div>
 
                         <div className="p-6 flex flex-col flex-grow">
-
                           {/* Title & Description */}
                           <h3 className="text-xl md:text-xl font-bold mb-4 text-text-primary group-hover:text-accent-gold transition-colors line-clamp-2 min-h-[4rem] relative z-10">
                             {course.title}
@@ -222,9 +237,7 @@ export default function Courses() {
                               <div className="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] group-hover/btn:animate-[shimmer_2s_infinite]" />
                             </Link>
                           </div>
-
                         </div>
-
                       </div>
                     </div>
                   )
