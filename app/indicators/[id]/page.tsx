@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Navigation from '@/components/ui/Navigation'
 import Footer from '@/components/ui/Footer'
-import { Indicator, IndicatorPurchase, Payment } from '@/types'
+import { Indicator, IndicatorPurchase, Payment, IndicatorPerformance } from '@/types'
 import {
     ChevronLeft,
     CheckCircle2,
@@ -18,6 +18,9 @@ import {
     Smartphone,
     Shield,
     ChevronDown,
+    Calendar,
+    TrendingUp,
+    Image as ImageIcon,
 } from 'lucide-react'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/lib/store'
@@ -35,10 +38,13 @@ export default function IndicatorDetails() {
     const userId = user?.id
 
     const [indicator, setIndicator] = useState<Indicator | null>(null)
+    const [indicatorPerformances, setIndicatorPerformances] = useState<IndicatorPerformance[]>([])
     const [loading, setLoading] = useState(true)
+    const [performanceLoading, setPerformanceLoading] = useState(true)
     const [enrollmentLoading, setEnrollmentLoading] = useState(true)
     const [paymentLoading, setPaymentLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [selectedPerformance, setSelectedPerformance] = useState<IndicatorPerformance | null>(null)
 
     // New state for enrollment status
     const [isEnrolled, setIsEnrolled] = useState(false)
@@ -53,11 +59,15 @@ export default function IndicatorDetails() {
                 if (!id) return
 
                 setLoading(true)
+                setPerformanceLoading(true)
                 setEnrollmentLoading(true)
 
                 // Fetch indicator data
                 const indicatorData = await ApiService.getIndicatorById(Number(id))
                 setIndicator(indicatorData)
+
+                // Fetch indicator performance data
+                await fetchIndicatorPerformance(Number(id))
 
                 // Check enrollment status if user is logged in
                 if (userId) {
@@ -68,12 +78,28 @@ export default function IndicatorDetails() {
                 setError(err instanceof Error ? err.message : 'An error occurred')
             } finally {
                 setLoading(false)
+                setPerformanceLoading(false)
                 setEnrollmentLoading(false)
             }
         }
 
         fetchData()
     }, [id, userId])
+
+    // Function to fetch indicator performance
+    const fetchIndicatorPerformance = async (indicatorId: number) => {
+        try {
+            const performances = await ApiService.getIndicatorPerformance(indicatorId)
+            setIndicatorPerformances(performances)
+            // Set the first performance as selected by default
+            if (performances.length > 0) {
+                setSelectedPerformance(performances[0])
+            }
+        } catch (error) {
+            console.error('Error fetching indicator performance:', error)
+            setIndicatorPerformances([])
+        }
+    }
 
     // Function to check enrollment status
     const checkEnrollmentStatus = async (userId: number, indicatorId: number) => {
@@ -286,6 +312,27 @@ export default function IndicatorDetails() {
         if (urlString.startsWith('http://') || urlString.startsWith('https://')) return urlString;
         const base = process.env.NEXT_PUBLIC_API_URL_IMAGE || '';
         return base + urlString;
+    };
+
+    // Helper to get performance media URLs (handles array)
+    const getPerformanceMediaUrl = (url: string | string[] | undefined, index: number = 0): string => {
+        if (!url) return '';
+        
+        // If it's an array, get the specified index
+        const urlString = Array.isArray(url) ? url[index] : url;
+        
+        if (typeof urlString !== 'string') return '';
+        
+        if (urlString.startsWith('http://') || urlString.startsWith('https://')) return urlString;
+        const base = process.env.NEXT_PUBLIC_API_URL_IMAGE || '';
+        return base + urlString;
+    };
+
+    // Check if URL is a video
+    const isVideoUrl = (url: string): boolean => {
+        const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi'];
+        const lowerUrl = url.toLowerCase();
+        return videoExtensions.some(ext => lowerUrl.includes(ext));
     };
 
     if (loading) {
@@ -509,23 +556,14 @@ export default function IndicatorDetails() {
             />
 
             <main className="pt-28 pb-16 px-4 md:px-8 w-[90%] max-w-[1400px] mx-auto">
-                {/* Back Link and View Performance Button */}
-                <div className="flex items-center justify-between mb-6">
-                    <Link
-                        href="/#indicators"
-                        className="flex items-center gap-2 text-text-secondary hover:text-accent-gold transition group"
-                    >
-                        <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                        <span className="text-sm font-semibold uppercase tracking-wider">Back to Indicators</span>
-                    </Link>
-                    <Link
-                        href={`/indicators/${id}/performance`}
-                        className="flex items-center gap-2 px-4 py-2 bg-accent-gold/10  text-accent-gold hover:bg-accent-gold/20 rounded-lg transition-all duration-300 font-semibold text-sm"
-                    >
-                       
-                        View Performance
-                    </Link>
-                </div>
+                {/* Back Link */}
+                <Link
+                    href="/#indicators"
+                    className="flex items-center gap-2 text-text-secondary hover:text-accent-gold transition mb-6 group"
+                >
+                    <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                    <span className="text-sm font-semibold uppercase tracking-wider">Back to Indicators</span>
+                </Link>
 
                 <div className="bg-bg-card border-2 border-border/50 rounded-3xl overflow-hidden shadow-xl">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6 md:p-8">
@@ -618,7 +656,114 @@ export default function IndicatorDetails() {
                         </div>
                     </div>
 
-                    {/* Indicator Performance Section - Moved to Modal */}
+                    {/* Indicator Performance Section */}
+                    {!performanceLoading && indicatorPerformances.length > 0 && (
+                        <div className="border-t border-border/50 p-6 md:p-10 bg-gradient-to-b from-white/[0.01] to-transparent">
+                            <div className="w-full">
+                                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                                    <span className="w-8 h-1 bg-accent-gold rounded-full" />
+                                   
+                                    Indicator Performance
+                                </h2>
+
+                                {/* Performance Date Selector */}
+                                <div className="mb-8 overflow-x-auto pb-2">
+                                    <div className="flex gap-3 min-w-max">
+                                        {indicatorPerformances.map((performance) => (
+                                            <button
+                                                key={performance.id}
+                                                onClick={() => setSelectedPerformance(performance)}
+                                                className={`px-4 py-2 rounded-xl transition-all duration-300 flex items-center gap-2 ${
+                                                    selectedPerformance?.id === performance.id
+                                                        ? 'bg-accent-gold text-bg-primary shadow-lg shadow-accent-gold/20'
+                                                        : 'bg-white/5 border border-border/50 text-text-secondary hover:bg-white/10'
+                                                }`}
+                                            >
+                                                <Calendar className="w-4 h-4" />
+                                                <span className="text-sm font-semibold">
+                                                    {new Date(performance.performanceDate).toLocaleDateString('en-US', {
+                                                        year: 'numeric',
+                                                        month: 'short',
+                                                        day: 'numeric'
+                                                    })}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Selected Performance Details */}
+                                {selectedPerformance && (
+                                    <div className="space-y-6">
+                                        {/* Performance Text */}
+                                        <div className="bg-accent-gold/5 border border-accent-gold/10 rounded-2xl p-6">
+                                            <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                                                <TrendingUp className="w-5 h-5 text-accent-gold" />
+                                                Performance Summary
+                                            </h3>
+                                            <p className="text-text-secondary text-base leading-relaxed">
+                                                {selectedPerformance.todayPerformance}
+                                            </p>
+                                        </div>
+
+                                        {/* Performance Media Gallery */}
+                                        {selectedPerformance.imageUrl && Array.isArray(selectedPerformance.imageUrl) && selectedPerformance.imageUrl.length > 0 && (
+                                            <div>
+                                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                                    <ImageIcon className="w-5 h-5 text-accent-gold" />
+                                                   Supporting Visuals
+                             
+                                                </h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    {selectedPerformance.imageUrl.map((mediaUrl, idx) => {
+                                                        const fullUrl = getPerformanceMediaUrl(selectedPerformance.imageUrl, idx);
+                                                        const isVideo = isVideoUrl(fullUrl);
+                                                        
+                                                        return (
+                                                            <div key={idx} className="relative aspect-video w-full overflow-hidden rounded-xl border border-border/50 bg-bg-secondary group">
+                                                                {isVideo ? (
+                                                                    <video
+                                                                        src={fullUrl}
+                                                                        className="w-full h-full object-cover"
+                                                                        controls
+                                                                        preload="metadata"
+                                                                        playsInline
+                                                                    >
+                                                                        Your browser does not support the video tag.
+                                                                    </video>
+                                                                ) : (
+                                                                    <>
+                                                                        <Image
+                                                                            src={fullUrl}
+                                                                            alt={`Performance media ${idx + 1}`}
+                                                                            fill
+                                                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                                                            unoptimized
+                                                                        />
+                                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300" />
+                                                                    </>
+                                                                )}
+                                                        
+                                                                
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {!performanceLoading && indicatorPerformances.length === 0 && (
+                        <div className="border-t border-border/50 p-6 md:p-10">
+                            <div className="text-center py-8">
+                                <p className="text-text-secondary">No performance updates available for this indicator yet.</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Disclaimer/Note */}

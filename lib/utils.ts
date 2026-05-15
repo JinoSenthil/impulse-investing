@@ -41,3 +41,9 @@ export const getFullImageUrl = (relativePath: unknown): string => {
     
     return `${normalizedBaseUrl}${normalizedPath}`;
 };
+
+/** Plain text from CMS HTML (e.g. for image alt attributes). */
+export function stripHtmlToPlainText(html: string): string {
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return text || 'Course';
+}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getFullImageUrl } from '@/lib/utils';
+import { getFullImageUrl, stripHtmlToPlainText } from '@/lib/utils';
 import ApiService from '@/services/ApiService';
 import { CourseModule, PurchaseDetailsResponse, Payment, CoursePurchase, Course } from '@/types';
 import { ArrowLeft, Lock, CheckCircle, Loader2, PlayCircle, X, CreditCard, Wallet, Banknote, Smartphone, Shield, ChevronDown } from 'lucide-react';
@@ -387,9 +387,10 @@ export default function OnlineCourseDetailPage() {
                                     {simpleCourse.courseNumber}
                                 </p>
                             )}
-                            <h1 className="text-3xl md:text-5xl font-black mb-6 bg-gradient-to-r from-green-400 via-accent-green to-green-500 bg-clip-text text-transparent">
-                                {simpleCourse.title}
-                            </h1>
+                            <div
+                                className="text-3xl md:text-5xl font-black mb-6 bg-gradient-to-r from-green-400 via-accent-green to-green-500 bg-clip-text text-transparent [&_p]:m-0 [&_*]:text-inherit"
+                                dangerouslySetInnerHTML={{ __html: simpleCourse.title }}
+                            />
                             <div
                                 className="text-lg text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed prose prose-invert"
                                 dangerouslySetInnerHTML={{ __html: simpleCourse.description || simpleCourse.shortDescription }}
@@ -401,7 +402,7 @@ export default function OnlineCourseDetailPage() {
                                     <div className="relative w-full h-[300px] md:h-[400px]">
                                         <Image
                                             src={getFullImageUrl(simpleCourse.coverImage || simpleCourse.thumbnailImgUrl)}
-                                            alt={simpleCourse.title}
+                                            alt={stripHtmlToPlainText(simpleCourse.title)}
                                             fill
                                             className="object-cover"
                                         />
@@ -612,7 +613,7 @@ export default function OnlineCourseDetailPage() {
                                     <div className="absolute inset-0">
                                         <Image
                                             src={getFullImageUrl(course.thumbnailImgUrl)}
-                                            alt={course.title}
+                                            alt={stripHtmlToPlainText(course.title)}
                                             fill
                                             className="object-cover opacity-20"
                                             sizes="100vw"
@@ -635,13 +636,17 @@ export default function OnlineCourseDetailPage() {
                                 </p>
                             )}
 
-                            <h1 className="text-3xl md:text-5xl font-black mb-6 bg-gradient-to-r from-accent-teal via-accent-teal to-accent-gold bg-clip-text text-transparent">
-                                {course.title}
-                            </h1>
+                            <div
+                                className="text-3xl md:text-5xl font-black mb-6 bg-gradient-to-r from-accent-teal via-accent-teal to-accent-gold bg-clip-text text-transparent [&_p]:m-0 [&_*]:text-inherit"
+                                dangerouslySetInnerHTML={{ __html: course.title }}
+                            />
 
-                            <p className="text-lg text-text-secondary max-w-2xl mx-auto mb-8 leading-relaxed">
-                                {course.shortDescription}
-                            </p>
+                            <div
+                                className="text-lg text-text-secondary max-w-2xl mx-auto mb-8 leading-relaxed [&_p]:m-0 [&_*]:text-inherit"
+                                dangerouslySetInnerHTML={{
+                                    __html: course.shortDescription || '',
+                                }}
+                            />
 
                             {/* Featured Image - Smaller and above price */}
                             {hasThumbnail && (
@@ -649,7 +654,7 @@ export default function OnlineCourseDetailPage() {
                                     <div className="relative w-full pt-[56.25%] bg-bg-secondary/80">
                                         <Image
                                             src={getFullImageUrl(course.thumbnailImgUrl) || '/noimage.webp'}
-                                            alt={course.title}
+                                            alt={stripHtmlToPlainText(course.title)}
                                             fill
                                             className="object-cover"
                                             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"

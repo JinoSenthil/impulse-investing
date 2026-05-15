@@ -225,10 +225,6 @@ class ApiService {
     return this.request<IndicatorPerformance[]>(`/indicatorPerformance/getAll?indicatorId=${indicatorId}`);
 }
 
-    static async getIndicatorPerformanceByDate(indicatorId: number, fromDate: string, toDate: string): Promise<IndicatorPerformance[]> {
-    return this.request<IndicatorPerformance[]>(`/indicatorPerformance/getAll?indicatorId=${indicatorId}&fromDate=${fromDate}&toDate=${toDate}`);
-}
-
     //News Controller
     static async getAllNews(params?: {
         createdById?: number;

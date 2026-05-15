@@ -11,6 +11,12 @@ import { RootState } from '@/lib/store'
 import { getFullImageUrl } from '@/lib/utils'
 import GlobalLoading from '@/components/ui/GlobalLoading';
 
+/** Plain text for image alt attributes when title is stored as HTML. */
+function stripHtmlToPlainText(html: string): string {
+  const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return text || 'Course';
+}
+
 const PremiumCoursesPage = () => {
   const router = useRouter();
 
@@ -213,7 +219,7 @@ const PremiumCoursesPage = () => {
                       <div className="absolute inset-0">
                         <Image
                           src={hasThumbnail ? imageUrl : "/noimage.webp"}
-                          alt={course.title}
+                          alt={stripHtmlToPlainText(course.title)}
                           fill
                           className={`object-cover transition-transform duration-700 group-hover:scale-110 ${!hasThumbnail ? 'opacity-40 saturate-50' : ''
                             }`}
@@ -256,10 +262,11 @@ const PremiumCoursesPage = () => {
                         )}
                       </div>
 
-                      {/* Title */}
-                      <h3 className="text-xl font-bold mb-2 transition-colors line-clamp-2">
-                        {course.title}
-                      </h3>
+                      {/* Title (API may return rich HTML from the CMS) */}
+                      <div
+                        className="text-xl font-bold mb-2 transition-colors line-clamp-2 text-text-primary [&_p]:m-0 [&_*]:text-inherit"
+                        dangerouslySetInnerHTML={{ __html: course.title }}
+                      />
 
                       {/* <div className="flex items-center gap-2 mb-3">
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-accent-teal/10 border border-accent-teal/20 rounded-md">
@@ -272,9 +279,12 @@ const PremiumCoursesPage = () => {
                       </div> */}
 
                       {/* Description */}
-                      <p className="text-text-secondary text-sm mb-4 line-clamp-3 leading-relaxed">
-                        {course.shortDescription}
-                      </p>
+                      <div
+                        className="text-text-secondary text-sm mb-4 line-clamp-3 leading-relaxed [&_p]:m-0 [&_*]:text-inherit"
+                        dangerouslySetInnerHTML={{
+                          __html: course.shortDescription || '',
+                        }}
+                      />
 
                       {/* Duration */}
                       {/* {course.duration && course.duration !== 'string' && (
