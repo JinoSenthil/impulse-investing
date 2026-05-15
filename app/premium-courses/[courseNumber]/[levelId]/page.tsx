@@ -10,7 +10,7 @@ import { OnlineCourseDetails, CourseModule, CourseLesson, PurchaseDetailsRespons
 import { ArrowLeft, BookOpen, Clock, ChevronRight, CheckCircle, Loader2, Lock, PlayCircle, AlertCircle, X, CreditCard, Wallet, Banknote, Smartphone, Shield, ChevronDown } from 'lucide-react';
 import PaymentModal from '@/components/ui/PaymentModal';
 import Image from 'next/image';
-import { getFullImageUrl } from '@/lib/utils'
+import { getFullImageUrl, stripHtmlToPlainText } from '@/lib/utils'
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { Sun, Moon } from 'lucide-react';
 
@@ -986,9 +986,10 @@ export default function LevelPage() {
               <span className="text-xs uppercase tracking-widest text-accent-teal font-black">
                 Level {levelNumber}
               </span>
-              <h1 className="text-sm md:text-lg font-bold text-text-primary line-clamp-1">
-                {currentModule.title}
-              </h1>
+              <div
+                className="text-sm md:text-lg font-bold text-text-primary line-clamp-1 [&_p]:m-0 [&_*]:text-inherit"
+                dangerouslySetInnerHTML={{ __html: currentModule.title }}
+              />
             </div>
 
             <div className="flex items-center gap-6">
@@ -1089,10 +1090,11 @@ export default function LevelPage() {
                                 {isCompleted ? <CheckCircle className="w-4 h-4" /> : index + 1}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h3 className={`font-semibold text-sm mb-1 line-clamp-2 ${selectedLesson?.id === lesson.id ? 'text-accent-teal' : 'text-text-primary'
-                                  }`}>
-                                  {lesson.title}
-                                </h3>
+                                <div
+                                  className={`font-semibold text-sm mb-1 line-clamp-2 [&_p]:m-0 [&_*]:text-inherit ${selectedLesson?.id === lesson.id ? 'text-accent-teal' : 'text-text-primary'
+                                    }`}
+                                  dangerouslySetInnerHTML={{ __html: lesson.title }}
+                                />
                                 {lesson.duration && lesson.duration !== '0:00' && (
                                   <div className="flex items-center gap-1 text-xs text-text-secondary">
                                     <Clock className="w-3 h-3" />
@@ -1147,9 +1149,10 @@ export default function LevelPage() {
                         <BookOpen className="w-4 h-4" />
                         <span>LESSON {currentModule.lessons?.findIndex(l => l.id === selectedLesson.id) + 1 || 1}</span>
                       </div>
-                      <h1 className="text-3xl md:text-3xl font-bold mb-4 leading-tight text-text-primary">
-                        {selectedLesson.title}
-                      </h1>
+                      <div
+                        className="text-3xl md:text-3xl font-bold mb-4 leading-tight text-text-primary [&_p]:m-0 [&_*]:text-inherit"
+                        dangerouslySetInnerHTML={{ __html: selectedLesson.title }}
+                      />
                       {selectedLesson.duration && selectedLesson.duration !== '0:00' && (
                         <div className="flex items-center gap-2 text-text-secondary">
                           <Clock className="w-4 h-4" />
@@ -1207,7 +1210,7 @@ export default function LevelPage() {
                               <div className="relative w-full aspect-[4/3] bg-bg-secondary rounded-2xl overflow-hidden">
                                 <Image
                                   src={imageUrl}
-                                  alt={selectedLesson.title || "Lesson image"}
+                                  alt={stripHtmlToPlainText(selectedLesson.title || 'Lesson image')}
                                   fill
                                   className="object-cover"
                                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"
@@ -1255,11 +1258,12 @@ export default function LevelPage() {
                       <div className="bg-bg-card border border-border rounded-2xl p-6 md:p-8">
                         <h2 className="text-2xl font-bold mb-6 text-accent-teal">Lesson Content</h2>
                         <div
-                          className="text-text-primary leading-relaxed whitespace-pre-wrap"
+                          className="text-text-primary leading-relaxed [&_p]:m-0 [&_p]:mb-4 [&_*]:text-inherit"
                           style={{ fontSize: '1.1rem', lineHeight: '1.8' }}
-                        >
-                          {selectedLesson.description}
-                        </div>
+                          dangerouslySetInnerHTML={{
+                            __html: selectedLesson.description || '',
+                          }}
+                        />
                       </div>
                     </div>
 
