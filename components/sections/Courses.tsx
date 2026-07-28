@@ -6,7 +6,7 @@ import Link from 'next/link'
 
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
-import ApiService from '@/services/ApiService'
+import { getCachedCourses } from '@/lib/cachedApi'
 import { Course } from '@/types'
 import { getFullImageUrl } from '@/lib/utils'
 import GlobalLoading from '../ui/GlobalLoading';
@@ -38,7 +38,7 @@ export default function Courses() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const data = await ApiService.getAllCourses();
+        const data = await getCachedCourses();
         const activeCourses = data.filter(c => c.activeStatus);
         setCourses(activeCourses);
       } catch (err) {

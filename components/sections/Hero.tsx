@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
-import ApiService, { parseArrayResponse } from '@/services/ApiService';
+import { parseArrayResponse } from '@/services/ApiService'
+import { getCachedHomePageData } from '@/lib/cachedApi';
 import { HomePageData } from '@/types';
 import Link from 'next/link';
 
@@ -13,7 +14,7 @@ export default function Hero() {
   useEffect(() => {
     const fetchHeroData = async () => {
       try {
-        const data = await ApiService.getHomePageData();
+        const data = await getCachedHomePageData();
         const list = parseArrayResponse<HomePageData>(data);
         const activeData = list.find(item => item.activeStatus);
         setHeroData(activeData || null);

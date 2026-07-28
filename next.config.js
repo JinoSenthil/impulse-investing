@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  compress: true,
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -24,21 +26,23 @@ const nextConfig = {
         hostname: 'img.youtube.com',
       },
 
-      // ✅ Your API image server
       // ✅ Your API image server (Domain)
       {
         protocol: 'https',
         hostname: 'api.impulseinvesting.com',
-        pathname: '/images/**',
+        pathname: '/**',
       },
       // ✅ Your API image server (IP - for backward compatibility)
       {
         protocol: 'http',
         hostname: '103.146.234.88',
         port: '3016',
-        pathname: '/images/**',
+        pathname: '/**',
       },
     ],
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
   },
 }
 

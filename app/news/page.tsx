@@ -8,37 +8,21 @@ import { Image as ImageIcon, ArrowLeft, ArrowRight, Home } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { NewsItem } from '@/types'
 import { getFullImageUrl } from '@/lib/utils'
-import ApiService from '@/services/ApiService'
+import { filterPublishedNews, getCachedAllNews } from '@/lib/cachedApi'
 import GlobalLoading from '@/components/ui/GlobalLoading'
 
 export default function NewsListingPage() {
   const [news, setNews] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [imageIndices, setImageIndices] = useState<{ [key: number]: number }>({})
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 6
 
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const data = await ApiService.getAllNews()
-
-        const publishedNews = data.filter((item: NewsItem) =>
-          item.activeStatus && item.newsStatus === "PUBLISHED"
-        )
-
-        setNews(publishedNews)
-
-        // Initialize image indices for each news item
-        const initialIndices: { [key: number]: number } = {}
-        publishedNews.forEach((item: NewsItem) => {
-          const imageArray = getImageArray(item.imageUrl)
-          if (imageArray.length > 1) {
-            initialIndices[item.id] = 0
-          }
-        })
-        setImageIndices(initialIndices)
+        const data = await getCachedAllNews()
+        setNews(filterPublishedNews(data))
       } catch (err) {
         console.error('Error fetching news:', err)
         setError(err instanceof Error ? err.message : 'An error occurred')
@@ -67,27 +51,6 @@ export default function NewsListingPage() {
     if (Array.isArray(imageUrl)) return imageUrl
     return [imageUrl]
   }
-
-  // Auto-scroll effect for each news item
-  useEffect(() => {
-    const intervals: { [key: number]: NodeJS.Timeout } = {}
-
-    currentNewsItems.forEach((item) => {
-      const imageArray = getImageArray(item.imageUrl)
-      if (imageArray.length > 1) {
-        intervals[item.id] = setInterval(() => {
-          setImageIndices(prev => ({
-            ...prev,
-            [item.id]: ((prev[item.id] || 0) + 1) % imageArray.length
-          }))
-        }, 3000)
-      }
-    })
-
-    return () => {
-      Object.values(intervals).forEach(interval => clearInterval(interval))
-    }
-  }, [currentNewsItems])
 
   const formatDateTime = (dateString?: string) => {
     if (!dateString) return ''
@@ -189,10 +152,7 @@ export default function NewsListingPage() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 min-h-[800px] items-start">
               {currentNewsItems.map((item, index) => {
-                const imageArray = getImageArray(item.imageUrl)
-                const currentImageIndex = imageIndices[item.id] || 0
-                const currentImage = imageArray[currentImageIndex]
-                const hasMultipleImages = imageArray.length > 1
+                const firstImage = getImageArray(item.imageUrl)[0]
 
                 return (
                   <motion.div
@@ -206,29 +166,16 @@ export default function NewsListingPage() {
 
                         {/* Image Section */}
                         <div className="relative aspect-[16/10] w-full overflow-hidden flex-shrink-0">
-                          {currentImage && currentImage !== "string" ? (
+                          {firstImage && firstImage !== 'string' ? (
                             <>
                               <Image
-                                src={getFullImageUrl(currentImage)}
+                                src={getFullImageUrl(firstImage)}
                                 alt={item.title}
                                 fill
                                 className="object-cover transition-transform duration-700 group-hover:scale-110"
                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                unoptimized
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-[#05161A] via-transparent to-transparent opacity-60" />
-
-                              {hasMultipleImages && (
-                                <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-10">
-                                  {imageArray.map((_, idx) => (
-                                    <div
-                                      key={idx}
-                                      className={`h-1 transition-all duration-300 ${idx === currentImageIndex ? 'w-5 bg-accent-gold' : 'w-1.5 bg-white/40'
-                                        } rounded-full`}
-                                    />
-                                  ))}
-                                </div>
-                              )}
                             </>
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-bg-secondary to-[#05161A]">

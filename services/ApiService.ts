@@ -248,6 +248,17 @@ class ApiService {
         return this.request<NewsItem[]>(url);
     }
 
+    static async getLatestNews(limit = 3): Promise<NewsItem[]> {
+        try {
+            return await this.request<NewsItem[]>(`/news/getLatest?limit=${limit}`);
+        } catch {
+            const all = await this.getAllNews();
+            return all
+                .filter((item) => item.activeStatus && item.newsStatus === 'PUBLISHED')
+                .slice(0, limit);
+        }
+    }
+
     static async getNewsById(id: number): Promise<NewsItem> {
         return this.request<NewsItem>(`/news/getOne/${id}`);
     }

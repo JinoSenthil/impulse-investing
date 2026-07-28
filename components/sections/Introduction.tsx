@@ -5,7 +5,8 @@ import Image from 'next/image'
 import { ShieldCheck, Zap, BarChart3, Bell } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { IntroductionData } from '@/types'
-import ApiService, { parseArrayResponse } from '@/services/ApiService'
+import { parseArrayResponse } from '@/services/ApiService'
+import { getCachedIntroductionData } from '@/lib/cachedApi'
 import Link from 'next/link';
 import { useTheme } from '@/components/providers/ThemeProvider'
 import { getFullImageUrl } from '@/lib/utils'
@@ -18,7 +19,7 @@ export default function Introduction() {
     useEffect(() => {
         const fetchIntroData = async () => {
             try {
-                const data = await ApiService.getIntroductionData()
+                const data = await getCachedIntroductionData()
                 const list = parseArrayResponse<IntroductionData>(data)
                 const activeData = list.find(item => item.activeStatus)
                 setIntroData(activeData || null)

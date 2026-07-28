@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { BarChart3, GraduationCap, TrendingUp, Lightbulb, Lock, Globe } from 'lucide-react';
-import ApiService from '@/services/ApiService';
+import { getCachedFeatures } from '@/lib/cachedApi';
 import { Feature } from '@/types';
 import GlobalLoading from '../ui/GlobalLoading';
 
@@ -14,7 +14,7 @@ export default function Features() {
   useEffect(() => {
     const fetchFeatures = async () => {
       try {
-        const data = await ApiService.getAllFeatures();
+        const data = await getCachedFeatures();
         setFeatures(data.filter(f => f.activeStatus));
       } catch (err) {
         console.error('Failed to fetch features:', err);

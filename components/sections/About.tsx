@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import ApiService from '@/services/ApiService';
+import { getCachedAbout } from '@/lib/cachedApi';
 import { AboutData } from '@/types';
 import GlobalLoading from '../ui/GlobalLoading';
 
@@ -13,7 +13,7 @@ export default function About() {
   useEffect(() => {
     const fetchAboutData = async () => {
       try {
-        const data = await ApiService.getAllAbout();
+        const data = await getCachedAbout();
         // Use the first active about entry
         const activeAbout = data.find(item => item.activeStatus);
         if (activeAbout) {

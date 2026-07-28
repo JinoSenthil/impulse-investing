@@ -1,69 +1,22 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Indicator } from '@/types'
 import { getFullImageUrl } from '@/lib/utils'
 import { motion } from 'framer-motion'
-import ApiService from '@/services/ApiService'
+import { getCachedIndicators } from '@/lib/cachedApi'
 import { ChevronLeft, ChevronRight, ArrowRight, Play, Image as ImageIcon } from 'lucide-react'
-import { useSelector } from 'react-redux'
-import { RootState } from '@/lib/store'
 
-// Auto-scroll Media Carousel Component (supports both images and videos)
-const AutoScrollMedia = ({ mediaUrls, title }: { mediaUrls: string[], title: string }) => {
-    const [currentIndex, setCurrentIndex] = useState(0)
-    const [isVideoPlaying, setIsVideoPlaying] = useState(false)
-    const intervalRef = useRef<NodeJS.Timeout | null>(null)
-    const videoRef = useRef<HTMLVideoElement>(null)
-    
+const ListPreviewMedia = ({ mediaUrls, title }: { mediaUrls: string[], title: string }) => {
     const mediaArray = Array.isArray(mediaUrls) ? mediaUrls : (mediaUrls ? [mediaUrls] : [])
-    const hasMultipleMedia = mediaArray.length > 1
+    const currentMedia = mediaArray[0] || ''
 
     const getMediaType = (url: string): 'image' | 'video' => {
         const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi']
-        const lowerUrl = url.toLowerCase()
-        return videoExtensions.some(ext => lowerUrl.includes(ext)) ? 'video' : 'image'
+        return videoExtensions.some(ext => url.toLowerCase().includes(ext)) ? 'video' : 'image'
     }
-
-    const nextMedia = useCallback(() => {
-        if (!isVideoPlaying) {
-            setCurrentIndex((prev) => (prev + 1) % mediaArray.length)
-        }
-    }, [mediaArray.length, isVideoPlaying])
-
-    // Auto-scroll functionality
-    useEffect(() => {
-        if (hasMultipleMedia && !isVideoPlaying) {
-            intervalRef.current = setInterval(nextMedia, 3000)
-        }
-
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current)
-            }
-        }
-    }, [hasMultipleMedia, nextMedia, isVideoPlaying])
-
-    const handleVideoPlay = () => {
-        setIsVideoPlaying(true)
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current)
-        }
-    }
-
-    const handleVideoEnded = () => {
-        setIsVideoPlaying(false)
-        setCurrentIndex((prev) => (prev + 1) % mediaArray.length)
-    }
-
-    const handleVideoPause = () => {
-        setIsVideoPlaying(false)
-    }
-
-    const currentMedia = mediaArray[currentIndex] || ''
-    const mediaType = getMediaType(currentMedia)
 
     if (!currentMedia) {
         return (
@@ -73,86 +26,26 @@ const AutoScrollMedia = ({ mediaUrls, title }: { mediaUrls: string[], title: str
         )
     }
 
+    if (getMediaType(currentMedia) === 'video') {
+        return (
+            <div className="w-full h-full flex items-center justify-center bg-bg-secondary">
+                <Play className="w-10 h-10 text-accent-gold" />
+            </div>
+        )
+    }
+
     return (
-        <div className="relative w-full h-full">
-            {mediaType === 'video' ? (
-                <>
-                    <video
-                        ref={videoRef}
-                        src={getFullImageUrl(currentMedia)}
-                        className="w-full h-full object-cover"
-                        onPlay={handleVideoPlay}
-                        onPause={handleVideoPause}
-                        onEnded={handleVideoEnded}
-                        controls
-                        preload="metadata"
-                        playsInline
-                    >
-                        Your browser does not support the video tag.
-                    </video>
-                    {/* Video play icon overlay - only show when video is not playing */}
-                    {!isVideoPlaying && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/30">
-                                <Play className="w-7 h-7 text-white ml-0.5" />
-                            </div>
-                        </div>
-                    )}
-                </>
-            ) : (
-                <Image
-                    src={getFullImageUrl(currentMedia)}
-                    alt={`${title} - media ${currentIndex + 1}`}
-                    fill
-                    className="object-cover transition-opacity duration-500"
-                    unoptimized
-                />
-            )}
-            
-            {/* Media type indicator */}
-            {/* <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-xl text-white text-xs font-bold z-20 flex items-center gap-1.5 border border-white/20">
-                {mediaType === 'video' ? (
-                    <>
-                        <Video className="w-3.5 h-3.5" />
-                        <span>Video</span>
-                    </>
-                ) : (
-                    <>
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        <span>Image</span>
-                    </>
-                )}
-            </div> */}
-            
-            {/* Progress dots for multiple media */}
-            {hasMultipleMedia && (
-                <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 z-20">
-                    {mediaArray.map((_, idx) => (
-                        <button
-                            key={idx}
-                            className={`h-1.5 rounded-full transition-all duration-300 ${
-                                idx === currentIndex 
-                                    ? 'w-6 bg-accent-gold' 
-                                    : 'w-1.5 bg-white/60 hover:bg-white/80'
-                            }`}
-                            onClick={() => {
-                                if (mediaType === 'video' && videoRef.current) {
-                                    videoRef.current.pause()
-                                }
-                                setCurrentIndex(idx)
-                                setIsVideoPlaying(false)
-                            }}
-                        />
-                    ))}
-                </div>
-            )}
-        </div>
+        <Image
+            src={getFullImageUrl(currentMedia)}
+            alt={title}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        />
     )
 }
 
 export default function Indicators() {
-  const { user } = useSelector((state: RootState) => state.auth)
-  console.log('Current user in Indicators component:', user)
   const [indicators, setIndicators] = useState<Indicator[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -181,7 +74,7 @@ export default function Indicators() {
   useEffect(() => {
     const fetchIndicators = async () => {
       try {
-        const data: Indicator[] = await ApiService.getAllIndicators();
+        const data: Indicator[] = await getCachedIndicators();
         
         // Filter active indicators - no transformation needed since we handle both types in getMediaArray
         const activeIndicators = data.filter(ind => ind.activeStatus);
@@ -323,7 +216,7 @@ export default function Indicators() {
 
                         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border-b border-border shadow-2xl group-hover:border-accent-gold/40 transition-all duration-500 z-10">
                           {mediaArray.length > 0 ? (
-                            <AutoScrollMedia mediaUrls={mediaArray} title={indicator.title} />
+                            <ListPreviewMedia mediaUrls={mediaArray} title={indicator.title} />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-bg-secondary">
                               <ImageIcon className="w-12 h-12 text-text-secondary" />

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, X, Youtube, Zap } from 'lucide-react'
-import ApiService from '@/services/ApiService'
+import { getCachedYouTubeVideos } from '@/lib/cachedApi'
 import { YouTubePublish } from '@/types'
 import Image from 'next/image'
 import { useTheme } from '@/components/providers/ThemeProvider'
@@ -17,7 +17,7 @@ export default function YouTubeVideos() {
     useEffect(() => {
         const fetchVideos = async () => {
             try {
-                const data = await ApiService.getAllYouTubeVideos()
+                const data = await getCachedYouTubeVideos()
                 // Sort by created date descending if possible, or just use as is
                 setVideos(data || [])
             } catch (err) {
@@ -29,13 +29,14 @@ export default function YouTubeVideos() {
         fetchVideos()
     }, [])
 
-    const getYoutubeId = (url: string) => {
+    const getYoutubeId = (url?: string | null) => {
+        if (!url) return null
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/
         const match = url.match(regExp)
         return (match && match[2].length === 11) ? match[2] : null
     }
 
-    const openVideo = (url: string) => {
+    const openVideo = (url?: string | null) => {
         const id = getYoutubeId(url)
         if (id) {
             setSelectedVideo(id)

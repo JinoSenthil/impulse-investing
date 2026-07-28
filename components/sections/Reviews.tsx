@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Star, Quote, ChevronLeft, ChevronRight, User } from 'lucide-react'
-import ApiService, { parseArrayResponse } from '@/services/ApiService'
+import { parseArrayResponse } from '@/services/ApiService'
+import { getCachedReviews } from '@/lib/cachedApi'
 import { Review } from '@/types'
 import Image from 'next/image'
 import { getFullImageUrl } from '@/lib/utils'
@@ -29,7 +30,7 @@ export default function Reviews() {
     useEffect(() => {
         const fetchReviews = async () => {
             try {
-                const data = await ApiService.getAllReviews()
+                const data = await getCachedReviews()
                 const list = parseArrayResponse<Review>(data)
 
                 // CRITICAL: Only display reviews with 'APPROVED' status

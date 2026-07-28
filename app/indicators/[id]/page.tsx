@@ -62,20 +62,29 @@ export default function IndicatorDetails() {
                 setPerformanceLoading(true)
                 setEnrollmentLoading(true)
 
-                // Fetch indicator data
                 const indicatorData = await ApiService.getIndicatorById(Number(id))
                 setIndicator(indicatorData)
 
-                // Fetch indicator performance data
-                await fetchIndicatorPerformance(Number(id))
+                const [performances, enrollments] = await Promise.all([
+                    ApiService.getIndicatorPerformance(Number(id)),
+                    userId
+                        ? ApiService.getAllIndicatorEnrollments({
+                            userId,
+                            indicatorId: indicatorData.id,
+                        })
+                        : Promise.resolve([]),
+                ])
 
-                // Check enrollment status if user is logged in
-                if (userId) {
-                    await checkEnrollmentStatus(userId, indicatorData.id)
+                setIndicatorPerformances(performances)
+                if (performances.length > 0) {
+                    setSelectedPerformance(performances[0])
                 }
+                setIsEnrolled(enrollments.length > 0)
             } catch (err) {
                 console.log('Failed to fetch data:', err)
                 setError(err instanceof Error ? err.message : 'An error occurred')
+                setIndicatorPerformances([])
+                setIsEnrolled(false)
             } finally {
                 setLoading(false)
                 setPerformanceLoading(false)
@@ -85,38 +94,6 @@ export default function IndicatorDetails() {
 
         fetchData()
     }, [id, userId])
-
-    // Function to fetch indicator performance
-    const fetchIndicatorPerformance = async (indicatorId: number) => {
-        try {
-            const performances = await ApiService.getIndicatorPerformance(indicatorId)
-            setIndicatorPerformances(performances)
-            // Set the first performance as selected by default
-            if (performances.length > 0) {
-                setSelectedPerformance(performances[0])
-            }
-        } catch (error) {
-            console.error('Error fetching indicator performance:', error)
-            setIndicatorPerformances([])
-        }
-    }
-
-    // Function to check enrollment status
-    const checkEnrollmentStatus = async (userId: number, indicatorId: number) => {
-        try {
-            const enrollments = await ApiService.getAllIndicatorEnrollments({
-                userId: userId,
-                indicatorId: indicatorId
-            })
-
-            // If there's at least one enrollment for this indicator, user is enrolled
-            setIsEnrolled(enrollments.length > 0)
-        } catch (error) {
-            console.error('Error checking enrollment status:', error)
-            // On error, assume not enrolled to avoid blocking user
-            setIsEnrolled(false)
-        }
-    }
 
     const [modalState, setModalState] = useState({
         isOpen: false,
@@ -738,7 +715,7 @@ export default function IndicatorDetails() {
                                                                             alt={`Performance media ${idx + 1}`}
                                                                             fill
                                                                             className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                                                            unoptimized
+                                                                            sizes="(max-width: 768px) 100vw, 50vw"
                                                                         />
                                                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300" />
                                                                     </>

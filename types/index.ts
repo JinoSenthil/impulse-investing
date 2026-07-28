@@ -397,7 +397,7 @@ export interface ApiUserTest {
 // types.ts (or wherever you keep your types)
 export interface ContactUs {
     id: number;
-    title: string;
+    title?: string | null;
     shortDescription: string;
     contact: string[];
     createdDate: string;
@@ -426,7 +426,7 @@ export interface YouTubePublish {
     id: number;
     createdById: number;
     videoType: 'VIDEO' | 'SHORTS';
-    videoUrl: string;
+    videoUrl: string | null;
     createdDate: string;
     modifiedDate: string;
 }

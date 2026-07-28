@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import ApiService from '@/services/ApiService';
+import { getCachedTotalCounts } from '@/lib/cachedApi';
 import { BarChart3, Users, BookOpen } from 'lucide-react';
 
 interface CountStat {
@@ -59,7 +59,7 @@ export default function Stats() {
     useEffect(() => {
         const fetchCounts = async () => {
             try {
-                const data = await ApiService.getTotalCounts();
+                const data = await getCachedTotalCounts();
                 setCounts(data);
             } catch (err) {
                 console.error('Failed to fetch total counts:', err);

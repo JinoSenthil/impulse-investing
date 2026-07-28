@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Mail, Phone, MessageSquare, Send, Loader2 } from 'lucide-react'
 import ApiService from '@/services/ApiService'
+import { getCachedContactUs } from '@/lib/cachedApi'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/lib/store'
 import { ContactData, ContactUs } from '@/types'
@@ -37,7 +38,7 @@ export default function Contact() {
   const fetchContactCards = async () => {
     try {
       setCardsLoading(true)
-      const data = await ApiService.getAllContactUs()
+      const data = await getCachedContactUs()
       setContactCards(data)
     } catch (err) {
       console.error('Failed to fetch contact cards:', err)
@@ -48,8 +49,8 @@ export default function Contact() {
   }
 
   // Function to get appropriate icon for each card
-  const getIconForCard = (title: string) => {
-    switch (title.toLowerCase()) {
+  const getIconForCard = (title?: string | null) => {
+    switch ((title ?? '').toLowerCase()) {
       case 'email us':
         return <Mail className="w-8 h-8 text-accent-gold group-hover:text-accent-red transition-colors duration-300" />
       case 'call us':

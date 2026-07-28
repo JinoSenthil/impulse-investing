@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import Navigation from '@/components/ui/Navigation'
 import Hero from '@/components/sections/Hero'
 import Introduction from '@/components/sections/Introduction'
@@ -8,13 +9,13 @@ import Indicators from '@/components/sections/Indicators'
 import Demo from '@/components/sections/Demo'
 import Courses from '@/components/sections/Courses'
 import News from '@/components/sections/News'
-import YouTubeVideos from '@/components/sections/YouTubeVideos'
-import Reviews from '@/components/sections/Reviews'
-// import Enrollment from '@/components/sections/Enrollment'
-import About from '@/components/sections/About'
-import Stats from '@/components/sections/Stats'
-import Contact from '@/components/sections/Contact'
 import Footer from '@/components/ui/Footer'
+
+const YouTubeVideos = dynamic(() => import('@/components/sections/YouTubeVideos'))
+const Reviews = dynamic(() => import('@/components/sections/Reviews'))
+const About = dynamic(() => import('@/components/sections/About'))
+const Stats = dynamic(() => import('@/components/sections/Stats'))
+const Contact = dynamic(() => import('@/components/sections/Contact'))
 
 export default function Home() {
   return (
@@ -29,7 +30,6 @@ export default function Home() {
       <News />
       <YouTubeVideos />
       <Reviews />
-      {/* <Enrollment /> */}
       <About />
       <Stats />
       <Contact />
