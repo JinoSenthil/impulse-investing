@@ -212,7 +212,6 @@ const PremiumCoursesPage = () => {
                 const hasThumbnail = !!imageUrl && imageUrl !== '/noimage.webp' && !isExamplePlaceholder;
                 const hasDiscount = course.discountPrice < course.price;
                 const effectiveAmount = hasDiscount ? course.discountPrice : course.price;
-                const isCourseFree = !course.isPaid || isAmountFree(effectiveAmount);
                 const showUnderImageFreeBadge = isAmountFree(effectiveAmount);
 
                 return (
