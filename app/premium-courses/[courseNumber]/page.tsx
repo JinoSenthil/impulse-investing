@@ -13,6 +13,9 @@ import { useSelector } from 'react-redux'
 import { RootState } from '@/lib/store'
 import Pagination from '@/components/ui/Pagination';
 import GlobalLoading from '@/components/ui/GlobalLoading';
+import CompetitionCourseOverview from '@/components/courses/CompetitionCourseOverview';
+
+const isAmountFree = (amount: number | null | undefined): boolean => Number(amount ?? 0) === 0;
 
 export default function OnlineCourseDetailPage() {
     const params = useParams();
@@ -46,7 +49,10 @@ export default function OnlineCourseDetailPage() {
 
                 const data = await ApiService.getPurchaseDetails(courseNumber, userId);
 
-                if (data.onlineCourse && data.onlineCourse.length > 0) {
+                if (
+                    (data.onlineCourse && data.onlineCourse.length > 0) ||
+                    (data.competitionCourse && data.competitionCourse.length > 0)
+                ) {
                     setCourseData(data);
                 } else {
                     if (!isNaN(Number(courseNumber))) {
@@ -88,7 +94,7 @@ export default function OnlineCourseDetailPage() {
     ]
 
     const handlePayment = async () => {
-        if (!courseData || !courseData.onlineCourse[0]) {
+        if (!courseData?.onlineCourse?.[0]) {
             setModalState({
                 isOpen: true,
                 type: 'error',
@@ -158,7 +164,7 @@ export default function OnlineCourseDetailPage() {
     };
 
     const confirmPayment = async () => {
-        if (!courseData || !courseData.onlineCourse[0] || !userId) return;
+        if (!courseData?.onlineCourse?.[0] || !userId) return;
 
         const course = courseData.onlineCourse[0];
         const amount = course.discountPrice < course.price ? course.discountPrice : course.price;
@@ -309,7 +315,7 @@ export default function OnlineCourseDetailPage() {
     const hasCourseAccess = courseData?.isPurchased === true;
 
     // Get modules from course data
-    const modules = courseData?.onlineCourse[0]?.modules || [];
+    const modules = courseData?.onlineCourse?.[0]?.modules || [];
 
     // Check if first level exists and is a preview (for demo)
     const firstModule = modules.length > 0 ? modules[0] : null;
@@ -348,6 +354,15 @@ export default function OnlineCourseDetailPage() {
 
     if (loading) {
         return <GlobalLoading />;
+    }
+
+    if (courseData?.competitionCourse?.[0]) {
+        return (
+            <CompetitionCourseOverview
+                course={courseData.competitionCourse[0]}
+                isPurchased={courseData.isPurchased}
+            />
+        );
     }
 
     if (simpleCourse && !courseData) {
@@ -413,7 +428,9 @@ export default function OnlineCourseDetailPage() {
                             {/* Price */}
                             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
                                 <div className="flex items-center gap-3">
-                                    {simpleCourse.discountPrice < simpleCourse.price ? (
+                                    {isAmountFree(simpleCourse.discountPrice < simpleCourse.price ? simpleCourse.discountPrice : simpleCourse.price) ? (
+                                        <span className="inline-flex items-center rounded-full border border-accent-green/30 bg-accent-green/10 px-5 py-2 text-2xl font-black uppercase tracking-[0.12em] text-accent-green">Free</span>
+                                    ) : simpleCourse.discountPrice < simpleCourse.price ? (
                                         <>
                                             <span className="text-4xl font-black text-green-400">₹{simpleCourse.discountPrice}</span>
                                             <span className="text-xl text-gray-500 line-through">₹{simpleCourse.price}</span>
@@ -430,7 +447,7 @@ export default function OnlineCourseDetailPage() {
         );
     }
 
-    if (error || !courseData || courseData.onlineCourse.length === 0) {
+    if (error || !courseData?.onlineCourse?.length) {
         return (
             <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center text-text-primary gap-4">
                 <h1 className="text-2xl font-bold text-red-500">{error || 'Course Not Found'}</h1>
@@ -442,6 +459,9 @@ export default function OnlineCourseDetailPage() {
     }
 
     const course = courseData.onlineCourse[0];
+    const hasDiscountPrice = course.discountPrice < course.price;
+    const effectiveCourseAmount = hasDiscountPrice ? course.discountPrice : course.price;
+    const isCourseFree = !course.isPaid || isAmountFree(effectiveCourseAmount);
     const hasThumbnail = course.coverImage && course.coverImage !== 'string';
 
     return (
@@ -665,7 +685,9 @@ export default function OnlineCourseDetailPage() {
 
                             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
                                 <div className="flex items-center gap-3">
-                                    {course.discountPrice < course.price ? (
+                                    {isCourseFree ? (
+                                        <span className="inline-flex items-center rounded-full border border-accent-teal/30 bg-accent-teal/10 px-6 py-2 text-2xl font-black uppercase tracking-[0.14em] text-accent-teal">Free</span>
+                                    ) : hasDiscountPrice ? (
                                         <>
                                             <span className="text-4xl font-black text-accent-teal">₹{course.discountPrice}</span>
                                             <span className="text-2xl text-text-secondary line-through">₹{course.price}</span>

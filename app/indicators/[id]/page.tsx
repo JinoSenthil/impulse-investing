@@ -75,11 +75,18 @@ export default function IndicatorDetails() {
                         : Promise.resolve([]),
                 ])
 
-                setIndicatorPerformances(performances)
-                if (performances.length > 0) {
-                    setSelectedPerformance(performances[0])
+                const normalizedPerformances = Array.isArray(performances)
+                    ? performances
+                    : []
+                const normalizedEnrollments = Array.isArray(enrollments)
+                    ? enrollments
+                    : []
+
+                setIndicatorPerformances(normalizedPerformances)
+                if (normalizedPerformances.length > 0) {
+                    setSelectedPerformance(normalizedPerformances[0])
                 }
-                setIsEnrolled(enrollments.length > 0)
+                setIsEnrolled(normalizedEnrollments.length > 0)
             } catch (err) {
                 console.log('Failed to fetch data:', err)
                 setError(err instanceof Error ? err.message : 'An error occurred')

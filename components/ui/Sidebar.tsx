@@ -18,13 +18,15 @@ import {
   ArrowLeft,
   Sun,
   Moon,
-  Star
+  Star,
+  Zap
 } from 'lucide-react'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/lib/store'
 import { logout } from '@/lib/features/auth/authSlice'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '@/components/providers/ThemeProvider'
+import ApiService from '@/services/ApiService'
 
 interface SidebarProps {
   isOpen: boolean
@@ -39,12 +41,42 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user } = useSelector((state: RootState) => state.auth)
 
   const [mounted, setMounted] = useState(false)
+  const [totalXP, setTotalXP] = useState<number | null>(null)
 
   const avatarUrl = mounted && user?.profileImage ? getFullImageUrl(user.profileImage) : ''
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadDashboardHome = async () => {
+      if (!user?.id) {
+        setTotalXP(null)
+        return
+      }
+
+      try {
+        const data = await ApiService.getDashboardHome(user.id)
+        if (!cancelled) {
+          setTotalXP(typeof data?.totalXP === 'number' ? data.totalXP : 0)
+        }
+      } catch (error) {
+        console.error('Failed to load dashboard home XP:', error)
+        if (!cancelled) {
+          setTotalXP(0)
+        }
+      }
+    }
+
+    void loadDashboardHome()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -137,6 +169,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 {user?.isPremium ? 'Elite' : 'Free Member'}
               </span>
             </div>
+            {mounted && user && (
+              <div className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-gold/35 bg-accent-gold/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-accent-gold">
+                <Zap className="h-3.5 w-3.5" />
+                {totalXP ?? '...'} XP
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -191,6 +229,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Theme Toggle Footer */}
       <div className="p-6 border-t border-border flex-shrink-0">
+        {mounted && user && (
+          <div className="mb-3 flex items-center justify-between rounded-xl border border-accent-gold/30 bg-accent-gold/10 px-4 py-3">
+            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-accent-gold">Total XP</span>
+            <span className="text-sm font-black text-text-primary">{totalXP ?? '...'}</span>
+          </div>
+        )}
         <button
           onClick={toggleTheme}
           className="w-full flex items-center justify-between px-4 py-3 bg-bg-card hover:bg-bg-primary rounded-xl border border-border hover:border-accent-gold transition-all group"

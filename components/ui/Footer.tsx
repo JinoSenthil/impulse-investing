@@ -15,7 +15,6 @@ export default function Footer() {
             <h4 className="font-bold text-lg mb-6 text-text-primary font-cinzel tracking-wider uppercase">Platform</h4>
             <ul className="space-y-3">
               <li><a href="#indicators" className="inline-block text-text-secondary hover:text-accent-gold hover:translate-x-1 transition-all duration-300 font-medium">Indicators</a></li>
-              <li><a href="#courses" className="inline-block text-text-secondary hover:text-accent-gold hover:translate-x-1 transition-all duration-300 font-medium">Courses</a></li>
               <li><a href="#news" className="inline-block text-text-secondary hover:text-accent-gold hover:translate-x-1 transition-all duration-300 font-medium">Market News</a></li>
               <li><a href="#enroll" className="inline-block text-text-secondary hover:text-accent-gold hover:translate-x-1 transition-all duration-300 font-medium">Pricing</a></li>
             </ul>

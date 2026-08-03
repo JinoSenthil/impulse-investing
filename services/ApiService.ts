@@ -1,4 +1,4 @@
-import { Course, LoginCredentials, User, EnrollmentData, OnlineCourse, OnlineCourseDetails, NewsItem, ContactData, Indicator, UserTest, Payment, CoursePurchase, PurchaseDetailsResponse, AboutData, Feature, IndicatorPurchase, HomePageData, IntroductionData, IndicatorEnrollment, ContactUs, Review, CourseEnrollment, YouTubePublish, IndicatorPerformance } from '@/types';
+import { Course, LoginCredentials, User, EnrollmentData, OnlineCourse, OnlineCourseDetails, NewsItem, ContactData, Indicator, UserTest, UserTestSubmission, Payment, CoursePurchase, PurchaseDetailsResponse, AboutData, Feature, IndicatorPurchase, HomePageData, IntroductionData, IndicatorEnrollment, ContactUs, Review, CourseEnrollment, YouTubePublish, IndicatorPerformance, DashboardHomeStats } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.impulseinvesting.com/api';
 // const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.12:8080/api';
@@ -335,7 +335,7 @@ class ApiService {
         return this.request<UserTest>(`/userTest/getOne/${id}`);
     }
 
-    static async createUserTest(data: Partial<UserTest>): Promise<UserTest> {
+    static async createUserTest(data: UserTestSubmission): Promise<UserTest> {
         return this.request<UserTest>('/userTest/add', {
             method: 'POST',
             body: JSON.stringify(data),
@@ -649,6 +649,10 @@ class ApiService {
 
     static async getDashboardPurchaseList(userId: number): Promise<any[]> {
         return this.request<any[]>(`/dashboard/purchase/list?userId=${userId}`);
+    }
+
+    static async getDashboardHome(userId: number): Promise<DashboardHomeStats> {
+        return this.request<DashboardHomeStats>(`/dashboard/home/${userId}`);
     }
 
     // Review Endpoints

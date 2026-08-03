@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Menu, X, User as UserIcon, LogOut, LayoutDashboard, ChevronDown, Crown, LogIn, Sun, Moon } from 'lucide-react'
+import { Menu, X, User as UserIcon, LogOut, LayoutDashboard, ChevronDown, Crown, LogIn, Sun, Moon, Zap } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/lib/store'
@@ -11,6 +11,7 @@ import { logout } from '@/lib/features/auth/authSlice'
 import { usePathname } from 'next/navigation'
 import { getFullImageUrl } from '@/lib/utils'
 import { useTheme } from '@/components/providers/ThemeProvider'
+import ApiService from '@/services/ApiService'
 
 export default function Navigation() {
     const { theme, toggleTheme } = useTheme()
@@ -18,6 +19,7 @@ export default function Navigation() {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const [isProfileOpen, setIsProfileOpen] = useState(false)
     const [mounted, setMounted] = useState(false)
+    const [totalXP, setTotalXP] = useState<number | null>(null)
     const [activeSection, setActiveSection] = useState('')
     const pathname = usePathname()
     const dispatch = useDispatch()
@@ -76,6 +78,35 @@ export default function Navigation() {
     }, [isProfileOpen])
 
     useEffect(() => {
+        let cancelled = false
+
+        const fetchTotalXP = async () => {
+            if (!user?.id || !isAuthenticated) {
+                setTotalXP(null)
+                return
+            }
+
+            try {
+                const data = await ApiService.getDashboardHome(user.id)
+                if (!cancelled) {
+                    setTotalXP(typeof data?.totalXP === 'number' ? data.totalXP : 0)
+                }
+            } catch (error) {
+                console.error('Failed to fetch total XP:', error)
+                if (!cancelled) {
+                    setTotalXP(0)
+                }
+            }
+        }
+
+        void fetchTotalXP()
+
+        return () => {
+            cancelled = true
+        }
+    }, [isAuthenticated, user?.id])
+
+    useEffect(() => {
         if (isMenuOpen) {
             document.body.style.overflow = 'hidden'
         } else {
@@ -87,7 +118,6 @@ export default function Navigation() {
         { href: '/#home', label: 'Home', isAnchor: true },
         { href: '/#features', label: 'Features', isAnchor: true },
         { href: '/#indicators', label: 'Products', isAnchor: true },
-        { href: '/#courses', label: 'Courses', isAnchor: true },
         { href: '/premium-courses', label: 'Premium Courses', isAnchor: false, isPremium: true },
         { href: '/#news', label: 'News', isAnchor: true },
         { href: '/#about', label: 'About', isAnchor: true },
@@ -212,6 +242,10 @@ export default function Navigation() {
                                                 {user?.isPremium ? 'Elite' : 'Member'}
                                             </span>
                                         </div>
+                                        <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-accent-gold/30 bg-accent-gold/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-accent-gold">
+                                            <Zap size={12} />
+                                            {totalXP ?? '...'} XP
+                                        </span>
                                         <ChevronDown size={14} className={`text-text-secondary transition-transform duration-300 ${isProfileOpen ? 'rotate-180' : ''}`} />
                                     </button>
 
@@ -231,6 +265,10 @@ export default function Navigation() {
                                                     <LayoutDashboard size={16} />
                                                     Dashboard
                                                 </Link>
+                                                <div className="mx-3 my-1 flex items-center justify-between rounded-xl border border-accent-gold/30 bg-accent-gold/10 px-3 py-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-accent-gold">Total XP</span>
+                                                    <span className="text-xs font-black text-text-primary">{totalXP ?? '...'}</span>
+                                                </div>
                                                 <button
                                                     onClick={handleLogout}
                                                     className="w-full flex items-center gap-3 px-5 py-3 text-sm text-red-500 hover:bg-red-500/10 transition"
@@ -371,6 +409,10 @@ export default function Navigation() {
                                                         <p className="text-text-primary font-bold">{user?.firstName} {user?.lastName}</p>
                                                         <p className="text-xs text-accent-gold font-black uppercase">{user?.isPremium ? 'Elite' : 'Member'}</p>
                                                     </div>
+                                                </div>
+                                                <div className="mb-4 flex items-center justify-between rounded-xl border border-accent-gold/30 bg-accent-gold/10 px-3 py-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-accent-gold">Total XP</span>
+                                                    <span className="text-sm font-black text-text-primary">{totalXP ?? '...'}</span>
                                                 </div>
                                                 <Link
                                                     href="/dashboard"

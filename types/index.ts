@@ -167,9 +167,12 @@ export interface CourseModule {
     courseId: number;
     title: string;
     duration: string;
+    audioUrl?: string | null;
+    youtubeLink?: string | null;
     isPreview: boolean;
     isAccess: boolean;
     isTestCompleted: boolean;
+    isPassed?: boolean;
     sortOrder: number;
     lessons: CourseLesson[];
 }
@@ -185,10 +188,90 @@ export interface CourseLesson {
     sortOrder: number;
 }
 
-export interface CourseTest {
+export interface CompetitionLesson {
     id: number;
     courseId: number;
     moduleId: number;
+    moduleSessionId: number;
+    title: string;
+    description: string;
+    url: string;
+    sortOrder: number;
+    activeStatus: boolean;
+}
+
+export interface ModuleSession {
+    id: number;
+    courseId: number;
+    moduleId: number;
+    sessionId: number;
+    sessionName: string;
+    audioUrl: string | null;
+    youtubeLink: string | null;
+    isPreview: boolean | null;
+    isAccess: boolean;
+    isCompleted?: boolean;
+    isSessionCompleted?: boolean;
+    isTestCompleted?: boolean;
+    isPassed?: boolean;
+    sortOrder: number;
+    sessionXpPoints: number | null;
+    activeStatus: boolean;
+    competitionLessons: CompetitionLesson[];
+}
+
+export interface CompetitionModule {
+    id: number;
+    courseId: number;
+    title: string;
+    thumbnailImgUrl?: string | null;
+    imageUrl?: string | null;
+    coverImage?: string | null;
+    isPreview: boolean | null;
+    isAccess: boolean;
+    isPassed?: boolean;
+    duration: string;
+    sortOrder: number;
+    xpPoints: number | null;
+    activeStatus: boolean;
+    moduleSession: ModuleSession[];
+}
+
+export interface CompetitionCourse {
+    id: number;
+    courseNumber: string;
+    courseType: 'COMPETITION' | string;
+    title: string;
+    shortDescription: string;
+    description: string;
+    courseKey: string;
+    categoryId: number | null;
+    categoryName?: string | null;
+    languageId: number | null;
+    languageName?: string | null;
+    price: number;
+    discountPrice: number;
+    accessType: string;
+    validity: string;
+    isPaid: boolean;
+    isPublished: boolean;
+    isFeatured: boolean;
+    sortOrder: number;
+    duration: string;
+    activeStatus: boolean;
+    thumbnailImgUrl: string | null;
+    coverImage: string | null;
+    bonusXp: number | null;
+    videoUrl: string | null;
+    competitionModule: CompetitionModule[];
+}
+
+export interface CourseTest {
+    id: number;
+    courseId: number;
+    moduleId: number | null;
+    competitionModuleId?: number | null;
+    moduleSessionId?: number | null;
     title: string;
     shortDescription: string;
     instructions: string;
@@ -209,7 +292,8 @@ export interface TestQuestion {
 }
 
 export interface OnlineCourseDetails {
-    onlineCourse: OnlineCourse[];
+    onlineCourse: OnlineCourse[] | null;
+    competitionCourse: CompetitionCourse[] | null;
     test: CourseTest[];
 }
 
@@ -261,6 +345,19 @@ export interface UserTest {
     testAnswer: UserTestAnswer[];
 }
 
+export interface UserTestSubmission {
+    userId: number;
+    testId: number;
+    moduleId: number;
+    competitionModuleId: number;
+    moduleSessionId: number;
+    finishingTime: string;
+    answers: Array<{
+        questionId: number;
+        selectedOption: string;
+    }>;
+}
+
 
 export interface Payment {
     id: number;
@@ -287,8 +384,14 @@ export interface CoursePurchase {
 
 export interface PurchaseDetailsResponse {
     isPurchased: boolean;
-    onlineCourse: OnlineCourse[];
+    isProgress?: boolean;
+    onlineCourse: OnlineCourse[] | null;
+    competitionCourse: CompetitionCourse[] | null;
     test: CourseTest[];
+}
+
+export interface DashboardHomeStats {
+    totalXP: number;
 }
 
 export interface HomePageData {
@@ -397,9 +500,9 @@ export interface ApiUserTest {
 // types.ts (or wherever you keep your types)
 export interface ContactUs {
     id: number;
-    title?: string | null;
-    shortDescription: string;
-    contact: string[];
+    title: string | null;
+    shortDescription: string | null;
+    contact: string[] | null;
     createdDate: string;
     modifiedDate: string;
 }

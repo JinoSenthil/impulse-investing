@@ -39,7 +39,7 @@ export default function Contact() {
     try {
       setCardsLoading(true)
       const data = await getCachedContactUs()
-      setContactCards(data)
+      setContactCards(data || [])
     } catch (err) {
       console.error('Failed to fetch contact cards:', err)
       setError('Failed to load contact information')
@@ -49,8 +49,8 @@ export default function Contact() {
   }
 
   // Function to get appropriate icon for each card
-  const getIconForCard = (title?: string | null) => {
-    switch ((title ?? '').toLowerCase()) {
+  const getIconForCard = (title: string | null | undefined) => {
+    switch (title?.toLowerCase()) {
       case 'email us':
         return <Mail className="w-8 h-8 text-accent-gold group-hover:text-accent-red transition-colors duration-300" />
       case 'call us':
@@ -63,8 +63,8 @@ export default function Contact() {
   }
 
   // Function to render contact details
-  const renderContactDetails = (contacts: string[]) => {
-    return contacts.map((contact, index) => (
+  const renderContactDetails = (contacts: string[] | null | undefined) => {
+    return (contacts || []).map((contact, index) => (
       <p key={index} className="text-accent-gold">
         {contact}
       </p>

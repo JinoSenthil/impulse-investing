@@ -73,7 +73,7 @@ export default function Hero() {
             <Link
               href="/#indicators"
               className="
-              inline-flex p-12  group relative items-center justify-center gap-3
+              inline-flex px-10 sm:px-12 group relative items-center justify-center gap-3
               bg-accent-teal text-white
               py-5 rounded-2xl font-black text-base uppercase tracking-[0.2em]
               transition-all duration-300 ease-out
@@ -86,19 +86,19 @@ export default function Hero() {
               Explore Indicators
             </Link>
             <Link
-              href="/#courses"
+              href="/leaderboard"
               className="
-              inline-flex p-12 group relative items-center justify-center gap-3
-              bg-transparent text-accent-teal border-2 border-accent-teal
+              inline-flex px-10 sm:px-12 group relative items-center justify-center gap-3
+              border-2 border-accent-gold text-accent-gold
               py-5 rounded-2xl font-black text-base uppercase tracking-[0.2em]
               transition-all duration-300 ease-out
-              hover:bg-accent-teal hover:text-white
-              hover:shadow-xl hover:shadow-accent-teal/30
+              hover:bg-accent-gold hover:text-white
+              hover:shadow-2xl hover:shadow-accent-gold/30
               hover:-translate-y-0.5
               hover:scale-105
-              active:scale-[0.98]"
+              active:scale-[0.98] "
             >
-              View Courses
+              Leaderboard
             </Link>
           </div>
 

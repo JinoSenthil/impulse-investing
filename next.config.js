@@ -26,6 +26,7 @@ const nextConfig = {
         hostname: 'img.youtube.com',
       },
 
+      // ✅ Your API image server
       // ✅ Your API image server (Domain)
       {
         protocol: 'https',
@@ -37,7 +38,7 @@ const nextConfig = {
         protocol: 'http',
         hostname: '103.146.234.88',
         port: '3016',
-        pathname: '/**',
+        pathname: '/images/**',
       },
     ],
   },

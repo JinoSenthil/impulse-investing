@@ -75,9 +75,10 @@ export default function Indicators() {
     const fetchIndicators = async () => {
       try {
         const data: Indicator[] = await getCachedIndicators();
+        const normalizedData = Array.isArray(data) ? data : []
         
         // Filter active indicators - no transformation needed since we handle both types in getMediaArray
-        const activeIndicators = data.filter(ind => ind.activeStatus);
+        const activeIndicators = normalizedData.filter(ind => ind.activeStatus);
         setIndicators(activeIndicators);
       } catch (err) {
         console.error('Error fetching indicators:', err);

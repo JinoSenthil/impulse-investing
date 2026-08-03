@@ -7,7 +7,6 @@ import Introduction from '@/components/sections/Introduction'
 import Features from '@/components/sections/Features'
 import Indicators from '@/components/sections/Indicators'
 import Demo from '@/components/sections/Demo'
-import Courses from '@/components/sections/Courses'
 import News from '@/components/sections/News'
 import Footer from '@/components/ui/Footer'
 
@@ -26,7 +25,6 @@ export default function Home() {
       <Features />
       <Indicators />
       <Demo />
-      <Courses />
       <News />
       <YouTubeVideos />
       <Reviews />

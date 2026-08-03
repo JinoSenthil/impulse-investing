@@ -1,18 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import Link from 'next/link';
 import ApiService from '@/services/ApiService';
 import { OnlineCourseDetails, CourseModule, CourseLesson, PurchaseDetailsResponse, Payment, CoursePurchase } from '@/types';
-import { ArrowLeft, BookOpen, Clock, ChevronRight, CheckCircle, Loader2, Lock, PlayCircle, AlertCircle, X, CreditCard, Wallet, Banknote, Smartphone, Shield, ChevronDown } from 'lucide-react';
+import { ArrowLeft, BookOpen, Clock, ChevronRight, CheckCircle, Loader2, Lock, PlayCircle, AlertCircle, X, CreditCard, Wallet, Banknote, Smartphone, Shield, ChevronDown, Headphones, Youtube } from 'lucide-react';
 import PaymentModal from '@/components/ui/PaymentModal';
 import Image from 'next/image';
 import { getFullImageUrl, stripHtmlToPlainText } from '@/lib/utils'
-import { useTheme } from '@/components/providers/ThemeProvider';
-import { Sun, Moon } from 'lucide-react';
 
 import type { CourseTest as ImportedCourseTest, TestQuestion as ImportedTestQuestion, UserTest as ImportedUserTest } from '@/types';
 import GlobalLoading from '@/components/ui/GlobalLoading';
@@ -34,13 +32,49 @@ interface UserTest extends Omit<ImportedUserTest, 'testAnswer'> {
   }>;
 }
 
+const formatElapsedTime = (totalSeconds: number): string => {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+const getYouTubeEmbedUrl = (link: string): string => {
+  if (!link) return '';
+
+  try {
+    const url = new URL(link);
+    const host = url.hostname.replace(/^www\./, '');
+    let videoId = '';
+
+    if (host === 'youtu.be') {
+      videoId = url.pathname.split('/').filter(Boolean)[0] || '';
+    } else if (host === 'youtube.com' || host === 'm.youtube.com') {
+      videoId = url.searchParams.get('v') || '';
+
+      if (!videoId) {
+        const parts = url.pathname.split('/').filter(Boolean);
+        if (['embed', 'shorts', 'live'].includes(parts[0])) {
+          videoId = parts[1] || '';
+        }
+      }
+    }
+
+    return /^[\w-]{11}$/.test(videoId)
+      ? `https://www.youtube.com/embed/${videoId}`
+      : '';
+  } catch {
+    return '';
+  }
+};
+
 export default function LevelPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
   const userId = user?.id;
-
-  const { theme, toggleTheme } = useTheme(); // Added hook
 
   const courseNumber = params.courseNumber as string;
   const levelId = params.levelId as string;
@@ -63,7 +97,14 @@ export default function LevelPage() {
   const [score, setScore] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [showResultAlert, setShowResultAlert] = useState(false);
-  const [userTests, setUserTests] = useState<UserTest[]>([]);
+  const [, setUserTests] = useState<UserTest[]>([]);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [showTabSwitchWarning, setShowTabSwitchWarning] = useState(false);
+  const [, setTabSwitchCount] = useState(0);
+  const [quizExpired, setQuizExpired] = useState(false);
+  const quizStartTimeRef = useRef<number | null>(null);
+  const submissionInProgressRef = useRef(false);
+  const tabSwitchCountRef = useRef(0);
 
   // Track completed lessons
   const [completedLessons, setCompletedLessons] = useState<Set<number>>(new Set());
@@ -96,6 +137,9 @@ export default function LevelPage() {
 
   // Add state to control header visibility
   const [showHeader, setShowHeader] = useState(true);
+  const [lessonContentTab, setLessonContentTab] = useState<'read' | 'audio' | 'video'>('read');
+  const [showTabLeaveConfirm, setShowTabLeaveConfirm] = useState(false);
+  const [, setPendingTabLeave] = useState(false);
 
   // Payment modal state
   const [modalState, setModalState] = useState({
@@ -207,13 +251,17 @@ export default function LevelPage() {
         setCourseData(data);
 
         const moduleIdNum = parseInt(levelId.replace('level-', ''));
-        const foundModule = data.onlineCourse[0]?.modules?.find(m => m.id === moduleIdNum);
+        const onlineCourse = data.onlineCourse?.[0];
+        if (!onlineCourse) {
+          throw new Error('Study course not found');
+        }
+        const foundModule = onlineCourse.modules?.find(m => m.id === moduleIdNum);
 
         // Check if there's a next module
-        if (foundModule && data.onlineCourse[0]?.modules) {
-          const moduleIndex = data.onlineCourse[0].modules.findIndex(m => m.id === moduleIdNum);
-          if (moduleIndex !== -1 && moduleIndex < data.onlineCourse[0].modules.length - 1) {
-            const nextMod = data.onlineCourse[0].modules[moduleIndex + 1];
+        if (foundModule && onlineCourse.modules) {
+          const moduleIndex = onlineCourse.modules.findIndex(m => m.id === moduleIdNum);
+          if (moduleIndex !== -1 && moduleIndex < onlineCourse.modules.length - 1) {
+            const nextMod = onlineCourse.modules[moduleIndex + 1];
             setHasNextModule(true);
             setNextModuleId(nextMod.id);
             setNextModulePreviewStatus(nextMod.isPreview || false);
@@ -291,6 +339,8 @@ export default function LevelPage() {
   // Auto-mark lesson as completed when selected
   useEffect(() => {
     if (selectedLesson) {
+      setLessonContentTab('read');
+
       // Mark as visited
       setVisitedLessons(prev => new Set([...prev, selectedLesson.id]));
 
@@ -310,8 +360,63 @@ export default function LevelPage() {
   useEffect(() => {
     if (activeTab === 'study') {
       setQuizStarted(false);
+      setShowTabSwitchWarning(false);
+      setTabSwitchCount(0);
+      tabSwitchCountRef.current = 0;
+      setQuizExpired(false);
+      setElapsedTime(0);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!quizStarted || quizSubmitted || quizExpired) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (quizStartTimeRef.current) {
+        setElapsedTime(Math.max(0, Math.floor((Date.now() - quizStartTimeRef.current) / 1000)));
+      }
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [quizStarted, quizSubmitted, quizExpired]);
+
+  useEffect(() => {
+    if (!quizStarted || quizSubmitted || quizExpired) {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        const nextValue = tabSwitchCountRef.current + 1;
+        tabSwitchCountRef.current = nextValue;
+        setTabSwitchCount(nextValue);
+        setShowTabSwitchWarning(true);
+        setPendingTabLeave(true);
+        setShowTabLeaveConfirm(true);
+      } else {
+        setShowTabSwitchWarning(false);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      const nextValue = tabSwitchCountRef.current + 1;
+      tabSwitchCountRef.current = nextValue;
+      setTabSwitchCount(nextValue);
+      setShowTabSwitchWarning(true);
+      setPendingTabLeave(true);
+      setShowTabLeaveConfirm(true);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, [quizStarted, quizSubmitted, quizExpired]);
 
   // Check if all lessons are completed
   const allLessonsCompleted = currentModule?.lessons
@@ -370,10 +475,58 @@ export default function LevelPage() {
     }
   };
 
+  const currentModuleAudioUrl = currentModule?.audioUrl ? getFullImageUrl(currentModule.audioUrl) : '';
+  const currentModuleYouTubeLink = currentModule?.youtubeLink?.trim() || '';
+  const currentModuleYouTubeEmbedUrl = getYouTubeEmbedUrl(currentModuleYouTubeLink);
+  const lessonProgressPercentage = currentModule?.lessons?.length
+    ? (completedLessons.size / currentModule.lessons.length) * 100
+    : 0;
+  const assessmentProgressPercentage = currentTest?.questions.length
+    ? ((currentQuestionIndex + 1) / currentTest.questions.length) * 100
+    : 0;
+  const displayedProgressPercentage = activeTab === 'quiz'
+    ? assessmentProgressPercentage
+    : lessonProgressPercentage;
+  const purchaseModuleIsPassed = purchaseDetails?.onlineCourse?.[0]?.modules?.find(
+    module => module.id === currentModule?.id,
+  )?.isPassed === true;
+  const hasAlreadyPassedExam = currentModule?.isPassed === true || purchaseModuleIsPassed;
+
+  const handleStayOnQuiz = () => {
+    setShowTabLeaveConfirm(false);
+    setPendingTabLeave(false);
+    setShowTabSwitchWarning(false);
+  };
+
+  const handleLeaveQuizPage = () => {
+    setShowTabLeaveConfirm(false);
+    setPendingTabLeave(false);
+    if (!submissionInProgressRef.current) {
+      setQuizExpired(true);
+      setQuizStarted(false);
+      void submitQuiz({ isAutoSubmitted: true, reason: 'tab-switch' });
+    }
+  };
+
   const handleTakeQuizChallenge = () => {
     // FIX 1: Check if user is logged in before proceeding
     if (!userId) {
       router.push(`/login?redirect=/premium-courses/${courseNumber}/level-${levelId}`);
+      return;
+    }
+
+    if (!allLessonsCompleted) {
+      alert('Complete all lessons to unlock the quiz.');
+      return;
+    }
+
+    if (!currentTest) {
+      alert('Quiz is not available for this level yet.');
+      return;
+    }
+
+    if (hasAlreadyPassedExam) {
+      alert('You have already passed this session assessment.');
       return;
     }
 
@@ -383,33 +536,28 @@ export default function LevelPage() {
       return;
     }
 
-    const hasPassed = Array.isArray(userTests) && userTests.some(test => test.isPassed);
-
-    if (hasPassed) {
-      if (window.confirm('You have already passed this quiz. Do you want to retake it?')) {
-        setActiveTab('quiz');
-        resetQuiz();
-      }
-    } else {
-      setActiveTab('quiz');
-      resetQuiz();
-    }
+    setActiveTab('quiz');
+    resetQuiz();
   };
 
-  const calculateScore = async () => {
+  const submitQuiz = async ({ isAutoSubmitted = false, reason }: { isAutoSubmitted?: boolean; reason?: string } = {}) => {
     if (!currentTest || !userId || !currentModule) {
       console.error('No test available or user not authenticated');
       return;
     }
 
-    // First, calculate the score locally
+    if (submissionInProgressRef.current) {
+      return;
+    }
+
+    submissionInProgressRef.current = true;
+
     let correctAnswers = 0;
     const answerDetails = currentTest.questions.map(question => {
       const selectedOption = selectedAnswers[question.id];
       let isCorrect = false;
 
       if (selectedOption !== undefined) {
-        // Convert "OPTION1" to 1, "OPTION2" to 2, etc.
         const correctOptionNumber = parseInt(question.correctOption.replace('OPTION', ''));
         isCorrect = (selectedOption === correctOptionNumber);
 
@@ -426,44 +574,43 @@ export default function LevelPage() {
     });
 
     const totalQuestions = currentTest.questions.length;
-
-    // Calculate based on passMark as number of correct answers needed
-    const passMark = currentTest.passMark || Math.ceil(totalQuestions * 0.6); // 60% as default
+    const passMark = currentTest.passMark || Math.ceil(totalQuestions * 0.6);
     const passed = correctAnswers >= passMark;
+    const elapsedSeconds = quizStartTimeRef.current
+      ? Math.max(0, Math.floor((Date.now() - quizStartTimeRef.current) / 1000))
+      : 0;
+    const finishingTime = formatElapsedTime(elapsedSeconds);
 
-    console.log('Local Quiz Calculation:', {
+    console.log('Quiz submission details:', {
+      isAutoSubmitted,
+      reason,
+      elapsedSeconds,
+      finishingTime,
       correctAnswers,
       totalQuestions,
       passMark,
       passed,
-      percentage: (correctAnswers / totalQuestions) * 100
     });
 
     try {
-      // Prepare submission data
       const submissionData = {
-        userId: userId,
+        userId,
         testId: currentTest.id,
         moduleId: currentModule.id,
+        competitionModuleId: 0,
+        moduleSessionId: 0,
+        finishingTime,
         answers: answerDetails.map(answer => ({
           questionId: answer.questionId,
           selectedOption: answer.selectedOption
         }))
       };
 
-      // Submit to API
       const response = await ApiService.createUserTest(submissionData);
-      console.log('API Response:', response);
-
-      // IMPORTANT: Use our local calculation for pass/fail, not the API's
-      // The backend API is returning incorrect isPassed value
       const finalScore = response.score || correctAnswers;
       const finalTotalQuestions = response.testAnswer?.length || totalQuestions;
+      const finalIsPassed = passed;
 
-      // ALWAYS use our local calculation for pass/fail
-      const finalIsPassed = passed; // This is our correct calculation
-
-      // But also check if the API gave us a score that we should use
       let apiScore = finalScore;
 
       if (Array.isArray(response.testAnswer)) {
@@ -479,36 +626,23 @@ export default function LevelPage() {
         apiScore = apiCorrectAnswers;
       }
 
-      console.log('Final Results to Show:', {
-        score: apiScore,
-        isPassed: finalIsPassed,
-        totalQuestions: finalTotalQuestions,
-        localCalculation: {
-          correctAnswers,
-          passed,
-          passMark
-        }
-      });
-
-      // Set the state with our corrected values
       setScore(apiScore);
       setIsPassed(finalIsPassed);
       setTotalQuestions(finalTotalQuestions);
       setQuizSubmitted(true);
-
-      // Hide header immediately before showing result alert
       setShowHeader(false);
       setShowResultAlert(true);
       setQuizStarted(false);
+      setElapsedTime(0);
+      setQuizExpired(true);
+      setShowTabSwitchWarning(false);
 
-      // Refresh user tests
       if (currentModule.id) {
         const tests = await ApiService.getAllUserTests({
           userId,
           moduleId: currentModule.id
         });
 
-        // Type-safe conversion
         const typedTests: UserTest[] = Array.isArray(tests)
           ? tests.map(test => ({
             ...test,
@@ -520,16 +654,18 @@ export default function LevelPage() {
       }
     } catch (error) {
       console.error('Failed to submit test:', error);
-      // Use local calculation as fallback
       setScore(correctAnswers);
       setIsPassed(passed);
       setTotalQuestions(totalQuestions);
       setQuizSubmitted(true);
-
-      // Hide header immediately before showing result alert
       setShowHeader(false);
       setShowResultAlert(true);
       setQuizStarted(false);
+      setElapsedTime(0);
+      setQuizExpired(true);
+      setShowTabSwitchWarning(false);
+    } finally {
+      submissionInProgressRef.current = false;
     }
   };
 
@@ -541,6 +677,13 @@ export default function LevelPage() {
     setScore(0);
     setIsPassed(false);
     setQuizStarted(true);
+    setQuizExpired(false);
+    setShowTabSwitchWarning(false);
+    setTabSwitchCount(0);
+    tabSwitchCountRef.current = 0;
+    setElapsedTime(0);
+    quizStartTimeRef.current = Date.now();
+    submissionInProgressRef.current = false;
   };
 
   const handleBackToLessons = () => {
@@ -614,7 +757,8 @@ export default function LevelPage() {
   };
 
   const handlePayment = async () => {
-    if (!courseData || !courseData.onlineCourse[0]) {
+    const onlineCourse = courseData?.onlineCourse?.[0];
+    if (!onlineCourse) {
       setModalState({
         isOpen: true,
         type: 'error',
@@ -637,7 +781,7 @@ export default function LevelPage() {
       // Check for existing purchases with PENDING status
       const existingPurchases = await ApiService.getAllCoursePurchases(
         userId,
-        courseData.onlineCourse[0].id,
+        onlineCourse.id,
         'PENDING'
       );
 
@@ -656,7 +800,7 @@ export default function LevelPage() {
       // Also check for SUCCESS payments (optional - if you want to prevent duplicate purchases)
       const successPurchases = await ApiService.getAllCoursePurchases(
         userId,
-        courseData.onlineCourse[0].id,
+        onlineCourse.id,
         'SUCCESS'
       );
 
@@ -690,9 +834,10 @@ export default function LevelPage() {
   };
 
   const confirmPayment = async () => {
-    if (!courseData || !courseData.onlineCourse[0] || !userId) return;
+    const onlineCourse = courseData?.onlineCourse?.[0];
+    if (!onlineCourse || !userId) return;
 
-    const course = courseData.onlineCourse[0];
+    const course = onlineCourse;
     const amount = course.discountPrice < course.price ? course.discountPrice : course.price;
 
     setIsProcessingPayment(true);
@@ -781,7 +926,7 @@ export default function LevelPage() {
     return <GlobalLoading />;
   }
 
-  if (error || !currentModule || !courseData) {
+  if (error || !currentModule || !courseData?.onlineCourse?.[0]) {
     return (
       <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center text-text-primary gap-4">
         <h1 className="text-2xl font-bold text-red-500">{error || 'Module Not Found'}</h1>
@@ -930,19 +1075,19 @@ export default function LevelPage() {
       {/* Header - Only shown when showHeader is true and NOT in any modal state */}
       {/* Sticky Header with Navigation and Progress */}
       {showHeader && (
-        <header className="sticky top-20 left-0 right-0 z-40 bg-bg-primary/95 backdrop-blur-xl border-b border-border shadow-xl">
-          <div className="max-w-[1800px] mx-auto px-6 h-20 flex items-center justify-between">
-            <div className="flex items-center gap-6">
+        <header className="sticky top-20 left-0 right-0 z-40 border-b border-border bg-bg-primary/95 shadow-xl backdrop-blur-xl">
+          <div className="mx-auto flex min-h-20 max-w-[1800px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               <button
                 onClick={handleBackClick}
-                className="flex items-center gap-2 text-text-secondary hover:text-accent-teal transition-all group font-bold"
+                className="flex items-center gap-2 font-bold text-text-secondary transition-all group hover:text-accent-teal"
               >
-                <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                <ArrowLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
                 <span className="hidden md:inline">Back to Levels</span>
               </button>
 
               {/* Mode Toggles */}
-              <div className="flex bg-bg-secondary rounded-lg p-1 border border-green-500/20">
+              <div className="flex rounded-lg border border-green-500/20 bg-bg-secondary p-1">
                 <button
                   onClick={() => activeTab === 'quiz' && quizStarted ? null : setActiveTab('study')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'study'
@@ -982,63 +1127,109 @@ export default function LevelPage() {
               </div>
             </div>
 
-            <div className="flex flex-col">
-              <span className="text-xs uppercase tracking-widest text-accent-teal font-black">
+            <div className="min-w-0 flex-1 max-w-[420px] sm:max-w-[520px] lg:max-w-[640px]">
+              <span className="inline-flex items-center gap-2 rounded-full bg-accent-teal px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[0_6px_18px_rgba(20,184,166,0.3)] ring-1 ring-white/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)]" />
                 Level {levelNumber}
               </span>
               <div
-                className="text-sm md:text-lg font-bold text-text-primary line-clamp-1 [&_p]:m-0 [&_*]:text-inherit"
+                className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-text-primary md:text-[15px] lg:text-base [&_p]:m-0 [&_*]:text-inherit"
                 dangerouslySetInnerHTML={{ __html: currentModule.title }}
               />
             </div>
 
-            <div className="flex items-center gap-6">
-              {/* Theme Toggle */}
-              <button
-                onClick={toggleTheme}
-                className="p-2.5 rounded-xl bg-bg-secondary border border-border text-text-primary hover:bg-bg-card transition-all group"
-                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              >
-                {theme === 'dark' ? (
-                  <Sun size={18} className="group-hover:rotate-45 transition-transform duration-500" />
-                ) : (
-                  <Moon size={18} className="group-hover:-rotate-12 transition-transform duration-500 text-accent-gold" />
-                )}
-              </button>
-
-              <div className="hidden lg:flex items-center gap-4">
-                <div className="flex flex-col items-end">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-text-secondary">Progress:</span>
-                    <span className="text-xs font-black text-accent-teal">
-                      {Math.round((completedLessons.size / currentModule.lessons.length) * 100)}%
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <div className="hidden rounded-xl border border-border/80 bg-white px-2.5 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.06)] backdrop-blur-sm md:flex md:items-center md:gap-2.5">
+                <div className="flex flex-col items-start">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-normal text-text-secondary">
+                      {activeTab === 'quiz' ? 'Assessment' : 'Progress'}
+                    </span>
+                    <span className="text-sm font-black text-accent-teal">
+                      {Math.round(displayedProgressPercentage)}%
                     </span>
                   </div>
-                  <div className="w-32 h-1.5 bg-bg-secondary rounded-full mt-1 overflow-hidden">
+                  <div className="mt-1 h-1.5 w-28 overflow-hidden rounded-[4px] bg-bg-secondary">
                     <div
                       className="h-full bg-accent-teal transition-all duration-500"
-                      style={{ width: `${(completedLessons.size / currentModule.lessons.length) * 100}%` }}
+                      style={{ width: `${displayedProgressPercentage}%` }}
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {activeTab === 'quiz' && quizStarted && (
+                <div
+                  className="flex items-center gap-2.5 rounded-xl border border-accent-gold/50 bg-gradient-to-r from-amber-600 to-accent-gold px-3 py-2 text-white shadow-[0_8px_24px_rgba(212,175,55,0.3)]"
+                  aria-label={`Quiz time ${formatElapsedTime(elapsedTime)}`}
+                  aria-live="polite"
+                >
+                  <Clock className="h-5 w-5" />
+                  <div>
+                    <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/80">
+                      Time elapsed
+                    </div>
+                    <div className="font-mono text-sm font-black tabular-nums">
+                      {formatElapsedTime(elapsedTime)}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'quiz' && quizStarted && currentTest && (
+                <div className="flex items-center gap-2 rounded-xl border border-accent-teal/50 bg-accent-teal px-3 py-2 text-white shadow-[0_8px_24px_rgba(20,184,166,0.28)]">
+                  <div>
+                    <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/80">
+                      Question
+                    </div>
+                    <div className="text-sm font-black">
+                      {currentQuestionIndex + 1} <span className="font-semibold text-white/75">of</span> {currentTest.questions.length}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab !== 'quiz' && currentTest && !isReviewMode && (
                 <button
                   onClick={handleTakeQuizChallenge}
-                  className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all transform hover:scale-105 flex items-center gap-2
-                    ${activeTab === 'quiz'
-                      ? 'bg-accent-teal text-white shadow-[0_0_20px_rgba(20,184,166,0.3)]'
-                      : 'bg-bg-secondary text-text-primary hover:bg-bg-card border border-border'
-                    }`}
+                  disabled={!allLessonsCompleted}
+                  className="flex items-center gap-2 whitespace-nowrap rounded-2xl bg-accent-teal px-5 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(20,184,166,0.3)] transition-all hover:scale-[1.02] hover:bg-accent-teal/90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
                 >
-                  <BookOpen className="w-4 h-4" />
+                  <BookOpen className="h-4 w-4" />
                   Take Quiz
                 </button>
-              </div>
+              )}
             </div>
           </div>
         </header>
+      )}
+
+      {showTabLeaveConfirm && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[2rem] border border-border bg-bg-card p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-2xl bg-red-500/10 p-3">
+                <AlertCircle className="h-6 w-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-text-primary">Warning!</h3>
+                <p className="text-sm text-text-secondary">You are taking an active quiz.</p>
+              </div>
+            </div>
+            <p className="mb-4 text-sm leading-6 text-text-secondary">
+              If you leave this page or switch to another browser tab, your quiz may be automatically submitted and your progress could be lost.
+            </p>
+            <p className="mb-6 text-base font-semibold text-text-primary">Do you want to continue?</p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button onClick={handleStayOnQuiz} className="flex-1 rounded-2xl border border-accent-teal/30 bg-accent-teal/10 px-4 py-3 font-semibold text-accent-teal transition hover:bg-accent-teal/20">
+                Stay on Quiz
+              </button>
+              <button onClick={handleLeaveQuizPage} className="flex-1 rounded-2xl bg-red-500 px-4 py-3 font-semibold text-white transition hover:bg-red-600">
+                Leave Page
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Main Content - Only shown when NOT in any modal state */}
@@ -1116,6 +1307,7 @@ export default function LevelPage() {
                   <div className="p-6 pt-4 border-t border-border flex-shrink-0">
                     {currentTest && !isReviewMode && (
                       <button
+                        onClick={handleTakeQuizChallenge}
                         className={`w-full p-4 rounded-xl font-bold transition-all flex items-center justify-center gap-3 ${allLessonsCompleted
                           ? 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:border-accent-gold/40 hover:border'
                           : 'bg-bg-secondary border border-border text-text-secondary/40 cursor-not-allowed'
@@ -1144,53 +1336,31 @@ export default function LevelPage() {
                 {selectedLesson ? (
                   <div className="p-6 md:p-8 lg:p-12 max-w-4xl mx-auto">
                     {/* Lesson Header */}
-                    <div className="mb-8">
-                      <div className="flex items-center gap-2 text-accent-teal text-sm font-bold mb-4">
-                        <BookOpen className="w-4 h-4" />
-                        <span>LESSON {currentModule.lessons?.findIndex(l => l.id === selectedLesson.id) + 1 || 1}</span>
-                      </div>
-                      <div
-                        className="text-3xl md:text-3xl font-bold mb-4 leading-tight text-text-primary [&_p]:m-0 [&_*]:text-inherit"
-                        dangerouslySetInnerHTML={{ __html: selectedLesson.title }}
-                      />
-                      {selectedLesson.duration && selectedLesson.duration !== '0:00' && (
-                        <div className="flex items-center gap-2 text-text-secondary">
-                          <Clock className="w-4 h-4" />
-                          <span>{selectedLesson.duration}</span>
+                    <div className="mb-8 md:mb-10">
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2 text-sm font-bold text-accent-teal">
+                          <BookOpen className="h-4 w-4" />
+                          <span>LESSON {currentModule.lessons?.findIndex(l => l.id === selectedLesson.id) + 1 || 1}</span>
                         </div>
-                      )}
-                    </div>
 
-                    <div className="flex items-center gap-6">
-                      <div className="hidden lg:flex items-center gap-4">
-                        <div className="flex flex-col items-end">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-text-secondary">Progress:</span>
-                            <span className="text-xs font-black text-accent-teal">
-                              {Math.round((completedLessons.size / currentModule.lessons.length) * 100)}%
-                            </span>
-                          </div>
-                          <div className="w-32 h-1.5 bg-bg-secondary rounded-full mt-1 overflow-hidden">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div className="min-w-0">
                             <div
-                              className="h-full bg-accent-teal transition-all duration-500"
-                              style={{ width: `${(completedLessons.size / currentModule.lessons.length) * 100}%` }}
+                              className="mb-4 text-3xl font-bold leading-tight text-text-primary md:text-3xl [&_p]:m-0 [&_*]:text-inherit"
+                              dangerouslySetInnerHTML={{ __html: selectedLesson.title }}
                             />
+                            {selectedLesson.duration && selectedLesson.duration !== '0:00' && (
+                              <div className="flex items-center gap-2 text-text-secondary">
+                                <Clock className="h-4 w-4" />
+                                <span>{selectedLesson.duration}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleTakeQuizChallenge}
-                          className="px-6 py-2.5 rounded-xl font-bold text-sm transition-all transform hover:scale-105 flex items-center gap-2 bg-accent-teal text-white shadow-[0_0_20px_rgba(20,184,166,0.3)]"
-                        >
-                          <BookOpen className="w-4 h-4" />
-                          Take Quiz
-                        </button>
                       </div>
                     </div>
                     {selectedLesson.url && selectedLesson.url !== '' && (
-                      <div className="rounded-2xl overflow-hidden border border-border shadow-[0_0_30px_rgba(20,184,166,0.1)] mb-8">
+                      <div className="mt-8 mb-8 overflow-hidden rounded-2xl border border-border shadow-[0_0_30px_rgba(20,184,166,0.1)]">
                         {(() => {
                           const imageUrl = getFullImageUrl(selectedLesson.url);
                           const hasImage = imageUrl && imageUrl !== '/noimage.webp';
@@ -1254,16 +1424,75 @@ export default function LevelPage() {
                     )}
 
                     {/* Lesson Content */}
-                    <div className="mb-8 prose prose-invert max-w-none">
-                      <div className="bg-bg-card border border-border rounded-2xl p-6 md:p-8">
-                        <h2 className="text-2xl font-bold mb-6 text-accent-teal">Lesson Content</h2>
-                        <div
-                          className="text-text-primary leading-relaxed [&_p]:m-0 [&_p]:mb-4 [&_*]:text-inherit"
-                          style={{ fontSize: '1.1rem', lineHeight: '1.8' }}
-                          dangerouslySetInnerHTML={{
-                            __html: selectedLesson.description || '',
-                          }}
-                        />
+                    <div className="mb-8 mt-8">
+                      <div className="overflow-hidden rounded-2xl border border-border bg-bg-card">
+                        <div className="grid grid-cols-3 border-b border-border bg-bg-secondary/60 p-2">
+                          {([
+                            { id: 'read', label: 'Read', icon: BookOpen },
+                            { id: 'audio', label: 'Audio', icon: Headphones },
+                            { id: 'video', label: 'Video', icon: Youtube },
+                          ] as const).map(({ id, label, icon: Icon }) => (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => setLessonContentTab(id)}
+                              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold transition-all sm:text-base ${
+                                lessonContentTab === id
+                                  ? 'bg-accent-teal text-white shadow-md'
+                                  : 'text-text-secondary hover:bg-bg-card hover:text-text-primary'
+                              }`}
+                              aria-pressed={lessonContentTab === id}
+                            >
+                              <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="p-6 md:p-8">
+                          {lessonContentTab === 'read' && (
+                            <div
+                              className="prose prose-invert max-w-none text-text-primary leading-relaxed [&_p]:m-0 [&_p]:mb-4 [&_*]:text-inherit"
+                              style={{ fontSize: '1.1rem', lineHeight: '1.8' }}
+                              dangerouslySetInnerHTML={{
+                                __html: selectedLesson.description || '',
+                              }}
+                            />
+                          )}
+
+                          {lessonContentTab === 'audio' && (
+                            currentModuleAudioUrl ? (
+                              <div>
+                                <h2 className="mb-2 text-xl font-bold text-text-primary">Listen to this lesson</h2>
+                                <p className="mb-6 text-sm text-text-secondary">Use the player below to hear the lesson audio.</p>
+                                <audio controls preload="metadata" src={currentModuleAudioUrl} className="w-full" />
+                              </div>
+                            ) : (
+                              <div className="py-10 text-center text-text-secondary">
+                                Audio is not available for this lesson.
+                              </div>
+                            )
+                          )}
+
+                          {lessonContentTab === 'video' && (
+                            currentModuleYouTubeEmbedUrl ? (
+                              <div className="aspect-video overflow-hidden rounded-xl bg-black">
+                                <iframe
+                                  src={currentModuleYouTubeEmbedUrl}
+                                  title={`${stripHtmlToPlainText(selectedLesson.title)} video`}
+                                  className="h-full w-full"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                  referrerPolicy="strict-origin-when-cross-origin"
+                                  allowFullScreen
+                                />
+                              </div>
+                            ) : (
+                              <div className="py-10 text-center text-text-secondary">
+                                Video is not available for this lesson.
+                              </div>
+                            )
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1291,13 +1520,7 @@ export default function LevelPage() {
                             setSelectedLesson(currentModule.lessons[currentIndex + 1]);
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           } else if (allLessonsCompleted && currentTest && !isReviewMode) {
-                            // FIX: Check if user is logged in before taking quiz
-                            if (!userId) {
-                              router.push(`/login?redirect=/premium-courses/${courseNumber}/${levelId}`);
-                              return;
-                            }
-                            setActiveTab('quiz');
-                            resetQuiz();
+                            handleTakeQuizChallenge();
                           }
                         }}
                         disabled={!allLessonsCompleted && currentModule.lessons?.findIndex(l => l.id === selectedLesson.id) === currentModule.lessons.length - 1}
@@ -1337,31 +1560,17 @@ export default function LevelPage() {
                 {currentTest && !quizSubmitted ? (
                   <>
                     {/* Progress Header */}
-                    <div className="text-center mb-12">
-                      <span className="inline-block px-4 py-2 rounded-full bg-accent-gold/10 border border-accent-gold/30 text-accent-gold text-sm font-black uppercase tracking-widest mb-4">
+                    <div className="mb-12 text-center">
+                      <span className="inline-block rounded-full border border-accent-gold/30 bg-accent-gold/10 px-4 py-2 text-sm font-black uppercase tracking-widest text-accent-gold">
                         Mastery Test
                       </span>
                     </div>
 
-                    <div className="mb-8 p-4 bg-bg-secondary rounded-xl border border-border">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-text-secondary">Progress</span>
-                        <span className="text-sm font-bold text-accent-gold">
-                          {currentQuestionIndex + 1}/{currentTest.questions.length} questions
-                        </span>
+                    {showTabSwitchWarning && (
+                      <div className="mb-6 rounded-xl border border-red-400/40 bg-red-500/10 p-4 text-sm text-red-200">
+                        Do not switch to another tab. If you leave this tab, your test may be automatically submitted or considered invalid.
                       </div>
-
-                      <div className="w-full h-2 bg-bg-primary rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-accent-gold transition-all duration-500"
-                          style={{
-                            width: currentTest.questions.length
-                              ? `${((currentQuestionIndex + 1) / currentTest.questions.length) * 100}%`
-                              : '0%'
-                          }}
-                        />
-                      </div>
-                    </div>
+                    )}
 
                     {/* Question Card */}
                     <div className="bg-bg-card border-2 border-border rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative">
@@ -1410,7 +1619,7 @@ export default function LevelPage() {
 
                       {currentQuestionIndex === currentTest.questions.length - 1 ? (
                         <button
-                          onClick={calculateScore}
+                          onClick={() => void submitQuiz()}
                           disabled={!selectedAnswers[currentTest.questions[currentQuestionIndex].id]}
                           className="px-10 py-4 bg-accent-gold text-black rounded-xl font-black hover:bg-yellow-400 transition-all shadow-[0_0_20px_rgba(212,175,55,0.3)] disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
                         >

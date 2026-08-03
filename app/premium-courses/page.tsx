@@ -17,6 +17,8 @@ function stripHtmlToPlainText(html: string): string {
   return text || 'Course';
 }
 
+const isAmountFree = (amount: number | null | undefined): boolean => Number(amount ?? 0) === 0;
+
 const PremiumCoursesPage = () => {
   const router = useRouter();
 
@@ -206,7 +208,12 @@ const PremiumCoursesPage = () => {
               {currentCourses.map((course) => {
                 // Get full image URL using the utility function
                 const imageUrl = getFullImageUrl(course.thumbnailImgUrl || course.coverImage);
-                const hasThumbnail = !!imageUrl && imageUrl !== '/noimage.webp';
+                const isExamplePlaceholder = /^https?:\/\/(?:www\.)?example\.com(?:\/|$)/i.test(imageUrl);
+                const hasThumbnail = !!imageUrl && imageUrl !== '/noimage.webp' && !isExamplePlaceholder;
+                const hasDiscount = course.discountPrice < course.price;
+                const effectiveAmount = hasDiscount ? course.discountPrice : course.price;
+                const isCourseFree = !course.isPaid || isAmountFree(effectiveAmount);
+                const showUnderImageFreeBadge = isAmountFree(effectiveAmount);
 
                 return (
                   <div
@@ -229,37 +236,33 @@ const PremiumCoursesPage = () => {
                         {/* Gradient Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
-                        {/* Badges */}
-                        <div className="absolute top-4 right-4 flex gap-2 z-10">
-                          {!course.isPaid && (
-                            <span className="bg-accent-teal text-white text-xs font-black px-3 py-1 rounded-full">
-                              FREE
-                            </span>
-                          )}
-                          {course.isFeatured && (
-                            <span className="bg-accent-gold text-black text-xs font-black px-3 py-1 rounded-full">
-                              FEATURED
-                            </span>
-                          )}
-                        </div>
+                        {/* Intentionally left without overlay badge for cleaner card header */}
                       </div>
                     </div>
 
                     {/* Course Content */}
                     <div className="p-6 flex flex-col flex-1">
                       {/* Course Key and Purchased Status */}
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between gap-3 mb-2">
                         {course.courseKey && (
                           <p className="text-xs uppercase tracking-widest text-accent-teal font-bold">
                             {course.courseKey}
                           </p>
                         )}
 
-                        {course.isPurchased && (
-                          <span className="inline-block bg-accent-teal/20 text-accent-teal text-xs font-black px-3 py-1 rounded-full border border-accent-teal/40">
-                            PURCHASED
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {showUnderImageFreeBadge && (
+                            <span className="-mt-2 inline-flex items-center rounded-full bg-gradient-to-r from-emerald-700 to-green-800 px-3 py-1 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_10px_20px_rgba(22,101,52,0.22)] ring-1 ring-white/10">
+                              Free
+                            </span>
+                          )}
+
+                          {course.isPurchased && (
+                            <span className="inline-block bg-accent-teal/20 text-accent-teal text-xs font-black px-3 py-1 rounded-full border border-accent-teal/40">
+                              PURCHASED
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Title (API may return rich HTML from the CMS) */}
@@ -297,22 +300,24 @@ const PremiumCoursesPage = () => {
                       )} */}
 
                       {/* Price */}
-                      <div className="flex items-center gap-3 mb-4">
-                        {course.discountPrice < course.price ? (
-                          <>
+                      {!showUnderImageFreeBadge && (
+                        <div className="mb-4 flex items-end gap-3">
+                          {hasDiscount ? (
+                            <>
+                              <span className="text-3xl font-black text-accent-teal">
+                                ₹{course.discountPrice.toLocaleString()}
+                              </span>
+                              <span className="pb-0.5 text-lg text-text-secondary line-through">
+                                ₹{course.price.toLocaleString()}
+                              </span>
+                            </>
+                          ) : (
                             <span className="text-3xl font-black text-accent-teal">
-                              ₹{course.discountPrice.toLocaleString()}
-                            </span>
-                            <span className="text-lg text-text-secondary line-through">
                               ₹{course.price.toLocaleString()}
                             </span>
-                          </>
-                        ) : (
-                          <span className="text-3xl font-black text-accent-teal">
-                            ₹{course.price.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
 
 
                       <button
