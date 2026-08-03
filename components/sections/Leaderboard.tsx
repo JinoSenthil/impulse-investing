@@ -36,7 +36,7 @@ const rankIcons: Record<number, JSX.Element> = {
 
 export default function Leaderboard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
-  const [selectedType, setSelectedType] = useState<LeaderboardType>('MONTHLY')
+  const [selectedType, setSelectedType] = useState<LeaderboardType>('TODAY')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const currentUserId = useSelector((state: RootState) => state.auth.user?.id)
@@ -46,6 +46,7 @@ export default function Leaderboard() {
 
     const loadLeaderboard = async () => {
       setLoading(true)
+      
       setError(null)
 
       try {
