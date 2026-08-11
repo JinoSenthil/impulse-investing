@@ -12,7 +12,7 @@ import Pagination from '@/components/ui/Pagination'
 import GlobalLoading from '@/components/ui/GlobalLoading'
 
 interface ModuleSummary {
-    moduleId: number
+    moduleId: number | null
     totalAttempts: number
     failedAttempts: number
     passedAttempts: number
@@ -199,13 +199,17 @@ export default function QuizResult() {
                                         </label>
                                         <select
                                             className="w-full bg-bg-secondary border border-border rounded-lg px-3 py-2 text-sm focus:border-accent-gold outline-none"
-                                            value={selectedModule || ''}
+                                            value={selectedModule ?? ''}
                                             onChange={(e) => setSelectedModule(e.target.value ? Number(e.target.value) : null)}
                                         >
                                             <option value="">All Modules</option>
-                                            {allModuleSummaries.map(module => (
-                                                <option key={module.moduleId} value={module.moduleId}>Module {module.moduleId}</option>
-                                            ))}
+                                            {allModuleSummaries
+                                                .filter(module => module.moduleId !== null)
+                                                .map(module => (
+                                                    <option key={module.moduleId ?? 0} value={module.moduleId ?? 0}>
+                                                        Module {module.moduleId}
+                                                    </option>
+                                                ))}
                                         </select>
                                     </div>
                                   

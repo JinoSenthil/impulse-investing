@@ -42,6 +42,14 @@ class ApiService {
         }
     }
 
+    private static normalizeUserTest(data: any): UserTest {
+        return {
+            ...data,
+            moduleId: data.moduleId ?? null,
+            isPassed: data.isPassed ?? data.passed ?? false,
+        };
+    }
+
     // Course Endpoints
     static async getAllCourses(): Promise<Course[]> {
         return this.request<Course[]>('/courses/getAll');
@@ -328,18 +336,21 @@ class ApiService {
             ? `/userTest/getAll?${query.toString()}`
             : `/userTest/getAll`;
 
-        return this.request<UserTest[]>(url);
+        const response = await this.request<any[]>(url);
+        return response.map(this.normalizeUserTest);
     }
 
     static async getUserTestById(id: number): Promise<UserTest> {
-        return this.request<UserTest>(`/userTest/getOne/${id}`);
+        const response = await this.request<any>(`/userTest/getOne/${id}`);
+        return this.normalizeUserTest(response);
     }
 
     static async createUserTest(data: UserTestSubmission): Promise<UserTest> {
-        return this.request<UserTest>('/userTest/add', {
+        const response = await this.request<any>('/userTest/add', {
             method: 'POST',
             body: JSON.stringify(data),
         });
+        return this.normalizeUserTest(response);
     }
 
     static async updateUserTest(id: number, data: Partial<UserTest>): Promise<UserTest> {

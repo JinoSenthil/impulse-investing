@@ -337,10 +337,20 @@ export interface UserTest {
     id: number;
     userId: number;
     testId: number;
-    moduleId: number;
+    moduleId: number | null;
+    competitionModuleId?: number;
+    moduleSessionId?: number;
     attemptNumber: number;
     score: number;
+    passMark?: number;
     isPassed: boolean;
+    passed?: boolean;
+    finishingTime?: string;
+    earnedXp?: number;
+    previousTotalXp?: number;
+    currentTotalXp?: number;
+    previousRank?: number;
+    currentRank?: number;
     attemptDate: string;
     testAnswer: UserTestAnswer[];
 }
