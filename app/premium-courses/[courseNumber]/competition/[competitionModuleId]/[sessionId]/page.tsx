@@ -112,11 +112,9 @@ export default function CompetitionSessionPage() {
         const foundCourse = data.competitionCourse?.[0];
         const foundModule = foundCourse?.competitionModule?.find(item => item.id === competitionModuleId);
         const foundSession = foundModule?.moduleSession?.find(item => item.id === sessionId);
-        const isFreeCourse = foundCourse?.accessType === 'FREE' || foundCourse?.isPaid === false;
         const canAccess =
           data.isPurchased ||
-          isFreeCourse ||
-          foundSession?.isAccess ||
+          foundSession?.isAccess === true ||
           foundSession?.isPreview === true;
 
         if (!foundCourse || !foundModule || !foundSession) {

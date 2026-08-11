@@ -37,6 +37,17 @@ export default function CompetitionModulePage() {
           throw new Error('Competition module not found');
         }
 
+        const sessions = foundModule.moduleSession || [];
+        const canAccessModule =
+          data.isPurchased ||
+          foundModule.isPreview === true ||
+          foundModule.isAccess === true ||
+          sessions.some(session => session.isPreview === true || session.isAccess === true);
+
+        if (!canAccessModule) {
+          throw new Error('This competition module is locked');
+        }
+
         if (!cancelled) {
           setCourse(foundCourse);
           setModule(foundModule);
@@ -148,7 +159,7 @@ export default function CompetitionModulePage() {
               </h2>
 
               <p className="mx-auto mb-8 max-w-2xl text-lg leading-relaxed text-text-secondary">
-                Complete each session to unlock the next and earn XP along the way.
+                Open any session you have access to and earn XP along the way.
               </p>
 
               <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-text-secondary">
@@ -174,7 +185,7 @@ export default function CompetitionModulePage() {
                   Module Sessions
                 </h4>
                 <p className="mx-auto max-w-[600px] text-lg text-text-secondary">
-                  Complete each session to unlock the next
+                  Free preview and granted sessions are ready to open
                 </p>
 
                 <div className="mt-4 flex flex-col items-center justify-center gap-4 text-sm text-text-secondary sm:flex-row">
@@ -190,25 +201,15 @@ export default function CompetitionModulePage() {
                     session.isCompleted === true ||
                     session.isSessionCompleted === true ||
                     session.isTestCompleted === true;
-                  const isAccessible = isPurchased || session.isAccess || session.isPreview === true;
-                  const previousSession = index > 0 ? sessions[index - 1] : null;
-                  const isPreviousCompleted =
-                    !previousSession ||
-                    previousSession.isCompleted === true ||
-                    previousSession.isSessionCompleted === true ||
-                    previousSession.isTestCompleted === true;
-                  const isUnlocked = index === 0
-                    ? isAccessible
-                    : isAccessible && isPreviousCompleted;
+                  const isUnlocked =
+                    isPurchased || session.isAccess === true || session.isPreview === true;
                   const label = isCompleted
                     ? 'REVIEW SESSION'
                     : isUnlocked
-                      ? session.isPreview
+                      ? session.isPreview === true
                         ? 'FREE PREVIEW'
-                        : 'OPEN SESSION'
-                      : isAccessible && !isPreviousCompleted
-                        ? 'COMPLETE PREVIOUS SESSION'
-                        : 'LOCKED';
+                        : 'VIEW LESSON'
+                      : 'LOCKED';
                   const sessionHref = `/premium-courses/${courseNumber}/competition/${module.id}/${session.id}`;
 
                   return (

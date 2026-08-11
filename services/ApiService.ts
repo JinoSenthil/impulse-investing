@@ -655,6 +655,19 @@ class ApiService {
         return this.request<DashboardHomeStats>(`/dashboard/home/${userId}`);
     }
 
+    static async getLeaderboard(type: 'TODAY' | 'WEEKLY' | 'MONTHLY' = 'TODAY'): Promise<Array<{
+        userId: number;
+        traderName: string | null;
+        firstName: string | null;
+        imageUrl?: string | null;
+        earnedXP: number;
+        rank: number;
+        amount?: number | null;
+        courseAmount?: number | null;
+    }>> {
+        return this.request(`/dashboard/leaderboard?type=${type}`);
+    }
+
     // Review Endpoints
     static async getAllReviews(userId?: number): Promise<Review[]> {
         const url = userId ? `/reviews/getAll?userId=${userId}` : '/reviews/getAll';

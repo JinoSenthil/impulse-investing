@@ -1,14 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { Award, Crown, Trophy, Zap } from 'lucide-react'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/lib/store'
+import ApiService from '@/services/ApiService'
+import { getFullImageUrl } from '@/lib/utils'
 
 interface LeaderboardEntry {
   userId: number
   traderName: string | null
   firstName: string | null
+  imageUrl: string | null
   earnedXP: number
   rank: number
   amount?: number | null
@@ -39,6 +43,7 @@ export default function Leaderboard() {
   const [selectedType, setSelectedType] = useState<LeaderboardType>('TODAY')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [brokenImages, setBrokenImages] = useState<Record<number, boolean>>({})
   const currentUserId = useSelector((state: RootState) => state.auth.user?.id)
 
   useEffect(() => {
@@ -46,23 +51,28 @@ export default function Leaderboard() {
 
     const loadLeaderboard = async () => {
       setLoading(true)
-      
       setError(null)
+      setBrokenImages({})
 
       try {
-        const response = await fetch(`/api/leaderboard?type=${selectedType}`, {
-          signal: controller.signal,
-        })
-
-        if (!response.ok) {
-          throw new Error('Unable to load leaderboard')
-        }
-
-        const data: LeaderboardEntry[] = await response.json()
-        setEntries([...data].sort((a, b) => a.rank - b.rank))
+        const data = await ApiService.getLeaderboard(selectedType)
+        if (controller.signal.aborted) return
+        setEntries(
+          [...data]
+            .map(entry => ({
+              userId: entry.userId,
+              traderName: entry.traderName,
+              firstName: entry.firstName,
+              imageUrl: entry.imageUrl ?? null,
+              earnedXP: entry.earnedXP,
+              rank: entry.rank,
+              amount: entry.courseAmount ?? entry.amount ?? null,
+            }))
+            .sort((a, b) => a.rank - b.rank),
+        )
       } catch (err) {
         if (err instanceof Error && err.name !== 'AbortError') {
-          setError(err.message)
+          setError(err.message || 'Unable to load leaderboard')
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -111,11 +121,10 @@ export default function Leaderboard() {
                   key={tab.type}
                   type="button"
                   onClick={() => setSelectedType(tab.type)}
-                  className={`rounded-xl px-4 py-2 text-sm font-black uppercase tracking-[0.08em] transition-all ${
-                    active
+                  className={`rounded-xl px-4 py-2 text-sm font-black uppercase tracking-[0.08em] transition-all ${active
                       ? 'bg-accent-gold text-black shadow-[0_8px_20px_rgba(212,175,55,0.35)]'
                       : 'text-text-secondary hover:bg-bg-secondary hover:text-text-primary'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -148,64 +157,81 @@ export default function Leaderboard() {
               </div>
 
               <div className="divide-y divide-border">
-              {entries.map((entry) => {
-                const displayName =
-                  entry.traderName?.trim() || entry.firstName?.trim() || 'Trader'
-                const isCurrentUser = entry.userId === currentUserId
-                const initials = displayName
-                  .split(/\s+/)
-                  .slice(0, 2)
-                  .map((part) => part.charAt(0).toUpperCase())
-                  .join('')
+                {entries.map((entry) => {
+                  const displayName =
+                    entry.firstName?.trim() || entry.traderName?.trim() || 'Trader'
+                  const isCurrentUser = entry.userId === currentUserId
+                  const initials = displayName
+                    .split(/\s+/)
+                    .slice(0, 2)
+                    .map((part) => part.charAt(0).toUpperCase())
+                    .join('')
+                  const avatarUrl = getFullImageUrl(entry.imageUrl)
+                  const showImage = Boolean(avatarUrl) && !brokenImages[entry.userId]
 
-                return (
-                  <div
-                    key={entry.userId}
-                    className="group px-4 py-2.5 transition-colors hover:bg-bg-secondary/50 sm:px-6"
-                  >
-                    <div className="grid grid-cols-[110px_minmax(0,1fr)_130px] items-center gap-3 rounded-2xl border border-border/70 bg-gradient-to-r from-bg-card to-bg-secondary/50 p-2.5 sm:grid-cols-[130px_minmax(0,1fr)_160px] sm:p-3">
-                      <div className="flex items-center justify-center gap-2">
-                        <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-sm font-black ${
-                            rankStyles[entry.rank] ||
-                            'border-border bg-bg-secondary text-text-secondary'
-                          }`}
-                          aria-label={`Rank ${entry.rank}`}
-                        >
-                          {rankIcons[entry.rank] || entry.rank}
-                        </div>
-                        <span className="text-[11px] font-black uppercase tracking-[0.08em] text-text-secondary sm:text-xs">
-                          Rank #{entry.rank}
-                        </span>
-                      </div>
-
-                      <div className="ml-[95px] flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-teal text-xs font-black text-white shadow-md">
-                          {initials}
-                        </div>
-
-                        <div className="flex min-w-0 items-center gap-2">
-                          <div className="truncate text-left text-sm font-bold text-text-primary sm:text-base">
-                            {displayName}
+                  return (
+                    <div
+                      key={entry.userId}
+                      className="group px-4 py-2.5 transition-colors hover:bg-bg-secondary/50 sm:px-6"
+                    >
+                      <div className="grid grid-cols-[110px_minmax(0,1fr)_130px] items-center gap-3 rounded-2xl border border-border/70 bg-gradient-to-r from-bg-card to-bg-secondary/50 p-2.5 sm:grid-cols-[130px_minmax(0,1fr)_160px] sm:p-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <div
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-sm font-black ${rankStyles[entry.rank] ||
+                              'border-border bg-bg-secondary text-text-secondary'
+                              }`}
+                            aria-label={`Rank ${entry.rank}`}
+                          >
+                            {rankIcons[entry.rank] || entry.rank}
                           </div>
-                          {isCurrentUser && (
-                            <span className="shrink-0 rounded-full border border-accent-gold/40 bg-gradient-to-r from-accent-gold/20 to-accent-teal/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-accent-gold shadow-[0_4px_14px_rgba(212,175,55,0.25)]">
-                              You
-                            </span>
-                          )}
+                          <span className="text-[11px] font-black uppercase tracking-[0.08em] text-text-secondary sm:text-xs">
+                            Rank #{entry.rank}
+                          </span>
                         </div>
-                      </div>
 
-                      <div className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-accent-gold/30 bg-accent-gold/10 px-3 py-1.5 text-accent-gold">
-                        <Zap className="h-3.5 w-3.5" fill="currentColor" />
-                        <span className="text-base font-black tabular-nums sm:text-lg" title={`${entry.earnedXP} XP`}>
-                          {formatXP(entry.earnedXP)}
-                        </span>
+                        <div className="ml-[95px] flex min-w-0 items-center gap-3">
+                          {showImage ? (
+                            <Image
+                              src={avatarUrl}
+                              alt={displayName}
+                              width={40}
+                              height={40}
+                              className="h-10 w-10 shrink-0 rounded-full object-cover shadow-md"
+                              onError={() =>
+                                setBrokenImages(previous => ({
+                                  ...previous,
+                                  [entry.userId]: true,
+                                }))
+                              }
+                            />
+                          ) : (
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-teal text-xs font-black text-white shadow-md">
+                              {initials}
+                            </div>
+                          )}
+
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div className="truncate text-left text-sm font-bold text-text-primary sm:text-base">
+                              {displayName}
+                            </div>
+                            {isCurrentUser && (
+                              <span className="shrink-0 rounded-full border border-accent-gold/40 bg-gradient-to-r from-accent-gold/20 to-accent-teal/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-accent-gold shadow-[0_4px_14px_rgba(212,175,55,0.25)]">
+                                You
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-accent-gold/30 bg-accent-gold/10 px-3 py-1.5 text-accent-gold">
+                          <Zap className="h-3.5 w-3.5" fill="currentColor" />
+                          <span className="text-base font-black tabular-nums sm:text-lg" title={`${entry.earnedXP} XP`}>
+                            {formatXP(entry.earnedXP)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
               </div>
             </div>
           )}

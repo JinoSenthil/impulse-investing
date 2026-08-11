@@ -18,7 +18,6 @@ export default function CompetitionCourseOverview({
   const modules = [...(course.competitionModule || [])]
     .filter(module => module.activeStatus !== false)
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  const isFreeCourse = course.accessType === 'FREE' || !course.isPaid;
 
   return (
     <main className="min-h-screen bg-bg-primary px-4 pb-16 pt-24 text-text-primary sm:px-8">
@@ -79,12 +78,18 @@ export default function CompetitionCourseOverview({
                 sessions[0]?.competitionLessons?.[0]?.url ||
                 course.thumbnailImgUrl,
               );
-              const canOpen =
-                isFreeCourse ||
-                isPurchased ||
-                module.isAccess ||
+              const hasPreviewAccess =
                 module.isPreview === true ||
-                sessions.some(session => session.isPreview === true || session.isAccess);
+                sessions.some(session => session.isPreview === true);
+              const hasAccessOnly =
+                module.isAccess === true ||
+                sessions.some(session => session.isAccess === true);
+              const canOpen = isPurchased || hasPreviewAccess || hasAccessOnly;
+              const actionLabel = !canOpen
+                ? 'Locked'
+                : hasPreviewAccess
+                  ? 'Free Preview'
+                  : 'View lesson';
               const hasImage = Boolean(moduleImage);
               const card = (
                 <article className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-bg-card transition ${
@@ -115,6 +120,11 @@ export default function CompetitionCourseOverview({
                           <Lock className="h-7 w-7 text-white/80 drop-shadow" />
                         )}
                       </div>
+                      {hasPreviewAccess && (
+                        <span className="absolute left-4 top-4 z-10 rounded-full bg-accent-teal px-3 py-1 text-[10px] font-black tracking-wider text-white">
+                          FREE PREVIEW
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -133,8 +143,8 @@ export default function CompetitionCourseOverview({
                         </span>
                       )}
                     </div>
-                    <div className="mt-auto flex items-center justify-between pt-6 font-bold text-accent-teal">
-                      <span>{canOpen ? 'View sessions' : 'Locked'}</span>
+                    <div className={`mt-auto flex items-center justify-between pt-6 font-bold ${canOpen ? 'text-accent-teal' : 'text-text-secondary'}`}>
+                      <span>{actionLabel}</span>
                       {canOpen && <ChevronRight className="h-5 w-5 transition group-hover:translate-x-1" />}
                     </div>
                   </div>
